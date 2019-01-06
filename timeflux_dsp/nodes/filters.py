@@ -1,4 +1,11 @@
-""" Nodes for signal filtering """
+# -*- coding: utf-8 -*-
+
+
+"""
+
+This module contains nodes for signal filtering
+
+"""
 
 from timeflux.core.node import Node
 from scipy import signal
@@ -13,7 +20,7 @@ class DropRows(Node):
 
         This node uses pandas computationally efficient functions to drop rows.
         By default, it simply transfers one row out of `factor` and drops the others.
-        If `method`is "mean" (resp. "median"), it applies a rolling window of length equals `factor, computes the mean and returns one value per window.
+        If ``method`` is "mean" (resp. "median"), it applies a rolling window of length equals ``factor``, computes the mean and returns one value per window.
         It maintains an internal state to ensure that every k'th sample is picked even across chunk boundaries.
 
 
@@ -27,16 +34,19 @@ class DropRows(Node):
         Note also that this filter does not implement any anti-aliasing filter. Hence, it is recommended to precede this node by
         a low-pass filter (e.g., FIR or IIR) which cuts out below half of the new sampling rate.
 
+    Example:
+       .. literalinclude:: /../../timeflux_dsp/test/graphs/droprows.yaml
+           :language: yaml
 
     """
 
     def __init__(self, factor, method=None):
         """
-                Initialize the node.
-                 Args:
-                    factor (int): Decimation factor. Only every k'th sample will be transferred into the output.
-                    method (str|None): method to use to drop rows. If None, the values are transferred as it. If "mean" (resp. "median"),
-                                       the mean (resp. median) of the samples are
+            Initialize the node.
+             Args:
+                factor (int): Decimation factor. Only every k'th sample will be transferred into the output.
+                method (str|None): method to use to drop rows. If None, the values are transferred as it. If "mean" (resp. "median"),
+                                   the mean (resp. median) of the samples are
         """
         self._factor = factor
         self._method = method
@@ -83,11 +93,12 @@ class Resample(Node):
         See documentation of scipy.signal.resample.
 
     Example:
-        .. literalinclude:: /../test/graphs/resample.yaml
+       .. literalinclude:: /../../timeflux_dsp/test/graphs/resample.yaml
            :language: yaml
     """
 
     def __init__(self, factor, window=None):
+
         """Resample signal using scipy.signal.resample function
             This node should be used after a buffer to assure that the FFT window has always the same length
         """
@@ -96,6 +107,7 @@ class Resample(Node):
         self._previous = pd.DataFrame()
 
     def update(self):
+
         self.o = self.i
         if self.i.data is not None:
             if not self.i.data.empty:
@@ -119,18 +131,22 @@ class IIRFilter(Node):
 
     If ``sos`` is None, this node uses adapted methods from mne.filters to design the filter coefficients based on the specified parameters.
     If no transition band is given, default is to use:
-        * ``l_freq``::   min(max(l_freq * 0.25, 2), l_freq)
-        * ``h_freq``::   min(max(h_freq * 0.25, 2.), fs / 2. - h_freq)
+    * l_trans_bandwidth =  min(max(l_freq * 0.25, 2), l_freq)
+    * h_trans_bandwidth =   min(max(h_freq * 0.25, 2.), fs / 2. - h_freq)
+
     Else, it uses ``sos`` as filter coefficients.
 
-    This filter ensures continuity  across chunk boundaries, using a recursive algorithm, based on a cascade of biquads filters
-    (see documentation here: http://www.eas.uccs.edu/~mwickert/ece5655/lecture_notes/ece5655_chap8.pdf) and scipy.signal.sosfilt.
+    Once the kernel has been estimated, the node applies the filtering to each columns in ``columns`` using scipy.signal.sosfilt to generate the output given the input,
+        hence ensures continuity  across chunk boundaries,
 
     Attributes:
         i (Port): default data input, expects DataFrame.
         o (Port): default output, provides DataFrame.
 
     Notes:
+         This node ensures continuity  across chunk boundaries, using a recursive algorithm, based on a cascade of biquads filters
+        (see documentation here: http://www.eas.uccs.edu/~mwickert/ece5655/lecture_notes/ece5655_chap8.pdf) and scipy.signal.sosfilt.
+
         The filter is initialized to have a minimal step response, but needs a "warmup" period for the filtering to be stable, leeding to small artifacts on the first few chunks.
         The IIR filter is faster than the FIR filter and delays the signal less but this delay is not constant and the stability not guarenteed.
 
@@ -138,7 +154,6 @@ class IIRFilter(Node):
 
     def __init__(self, fs, columns='all', order=None, freqs=list, mode="bandpass", design="butter", pass_loss=3.0,
                  stop_atten=50.0, sos=None):
-
         """
                 Initialize the node.
                  Args:
@@ -199,10 +214,10 @@ class IIRFilter(Node):
 class FIRFilter(Node):
     """Apply FIR filter to signal.
 
-        If `coeffs`` is None, this node uses adapted methods from mne.filters to design the filter coefficients based on the specified parameters.
+        If ``coeffs`` is None, this node uses adapted methods from mne.filters to design the filter coefficients based on the specified parameters.
         If no transition band is given, default is to use:
-            * ``l_freq``::   min(max(l_freq * 0.25, 2), l_freq)
-            * ``h_freq``::   min(max(h_freq * 0.25, 2.), fs / 2. - h_freq)
+        * l_trans_bandwidth =  min(max(l_freq * 0.25, 2), l_freq)
+        * h_trans_bandwidth =   min(max(h_freq * 0.25, 2.), fs / 2. - h_freq)
 
         Else, it uses ``coeffs`` as filter coefficients.
 
