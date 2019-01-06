@@ -1,0 +1,30 @@
+graphs:
+
+  - id: example
+    nodes:
+    - id: random
+      module: timeflux.nodes.random
+      class: Random
+    - id: window
+      module: timeflux.nodes.window
+      class: Window
+      params:
+        length: 2
+    - id: resample
+      module: timeflux.nodes_dev.filters
+      class: Resample
+      params:
+        factor: 2
+        window: None
+
+    - id: display
+      module: timeflux.nodes.debug
+      class: Display
+    edges:
+    - source: random
+      target: window
+    - source: window
+      target: resample
+    - source: resample
+      target: display
+    rate: 10

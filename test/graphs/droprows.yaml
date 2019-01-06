@@ -1,0 +1,23 @@
+graphs:
+
+  - id: example
+    nodes:
+    - id: random
+      module: timeflux.nodes.random
+      class: Random
+
+    - id: droprows
+      module: timeflux.nodes_dev.filters
+      class: DropRows
+      params:
+        factor: 2
+
+    - id: display
+      module: timeflux.nodes.debug
+      class: Display
+    edges:
+    - source: random
+      target: droprows
+    - source: droprows
+      target: display
+    rate: 10
