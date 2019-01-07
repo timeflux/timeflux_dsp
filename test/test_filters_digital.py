@@ -90,28 +90,6 @@ def test_cascade_iirfilter():
                                          cascade_output.iloc[int(warmup * node_iir._fs):].values, 3)
 
 
-    if show:
-        plt.figure()
-        plt.plot(cascade_output.iloc[5:] - continuous_output.iloc[5:])
-        plt.axvline(0.0, color='k', linestyle='--')
-        plt.axvline(warmup, color="k", linestyle='--')
-        plt.text(warmup * 1.2, 0.04, "warmup period")
-        plt.xlabel('time')
-        plt.ylabel('error')
-        plt.xlabel('time')
-        plt.ylabel('error')
-        plt.title("[IIRFilter] Difference between signal filtered offline and online ")
-        plt.show()
-
-        plt.figure()
-        plt.plot(data_input)
-        plt.plot(cascade_output)
-        plt.plot(continuous_output, "--")
-        plt.xlabel('time')
-        plt.ylabel('signal')
-        plt.legend(['in', 'out', 'offline'])
-        plt.title("[IIRFilter] Input/Output signal compared to offline filtered signal")
-        plt.show()
 
 def test_custom_sos():
     # sos has valid form
@@ -177,27 +155,3 @@ def test_cascade_firfilter():
     # correct for induced delay
     fir_o_delayed = cascade_output.copy()
     fir_o_delayed.index -= delay
-
-    if show:
-        # compare with offline filtering (on the whole data)
-        plt.figure()
-        plt.plot(cascade_output - continuous_output)
-        plt.axvline(0.0, color='k', linestyle='--')
-        plt.axvline(delay * 2, color="k", linestyle='--')
-        plt.text(delay * 3, 0.6, "warmup period")
-        plt.xlabel('time')
-        plt.ylabel('error')
-        plt.title("[FIRFilter] Difference between signal filtered offline and online ")
-        plt.show(block=True)
-
-        plt.figure()
-        plt.plot(pd.DataFrame(data_input))
-        plt.plot(cascade_output)
-        plt.plot(fir_o_delayed)
-        plt.plot(data_clean, "--k")
-        plt.xlabel('time')
-        plt.ylabel('signal')
-        plt.legend(['in_noisy', 'out', 'out_delayed', 'in_clean'])
-        plt.title("[FIRFilter] Input/Output signal compared to offline filtered signal")
-        plt.show(block=True)
-
