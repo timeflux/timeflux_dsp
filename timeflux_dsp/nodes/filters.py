@@ -21,7 +21,7 @@ class DropRows(Node):
         o (Port): Default output, provides DataFrame.
 
     Example:
-       .. literalinclude:: /../../timeflux_dsp/test/graphs/droprows.yaml
+       .. literalinclude:: /../../timeflux/timeflux_dsp/test/graphs/droprows.yaml
            :language: yaml
 
     Example:
@@ -30,7 +30,7 @@ class DropRows(Node):
         * ``factor`` = `2`
         * ``method`` = `None` (see orange trace) | ``method`` = `"mean"` (see green trace)
 
-        .. image:: /../../timeflux_dsp/doc/static/image/droprows_io.png
+        .. image:: /../../timeflux/timeflux_dsp/doc/static/image/droprows_io.png
            :align: center
 
 
@@ -90,7 +90,7 @@ class Resample(Node):
         o (Port): Default output, provides DataFrame.
 
     Example:
-        .. literalinclude:: /../../timeflux_dsp/test/graphs/resample.yaml
+        .. literalinclude:: /../../timeflux/timeflux_dsp/test/graphs/resample.yaml
            :language: yaml
 
     Notes:
@@ -162,7 +162,7 @@ class IIRFilter(Node):
 
         We plot the input signal, the output signal and the corresponding offline filtering.
 
-        .. image:: /../../timeflux_dsp/doc/static/image/iirfilter_io.png
+        .. image:: /../../timeflux/timeflux_dsp/doc/static/image/iirfilter_io.png
            :align: center
 
     Notes:
@@ -269,7 +269,7 @@ class FIRFilter(Node):
         The FIR is a linear phase filter, so it allows one to correct for the introduced delay. Here, we retrieve the input sinus of period 1kHz.
         We plot the input signal, the output signal, the corresponding offline filtering and the output signal after delay correction.
 
-        .. image:: /../../timeflux_dsp/doc/static/image/firfilter_io.png
+        .. image:: /../../timeflux/timeflux_dsp/doc/static/image/firfilter_io.png
            :align: center
 
     Notes:
