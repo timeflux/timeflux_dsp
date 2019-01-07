@@ -1,23 +1,17 @@
-"""Tests for nodes"""
+"""Tests for iir and fir nodes"""
 
 import pytest
 import pandas as pd
 import numpy as np
 from timeflux.core.registry import Registry
-from timeflux.helpers import *
-import xarray as xr
+
+from .helpers import CustomData
 from copy import copy
+
 from timeflux_dsp.nodes.filters import FIRFilter, IIRFilter
 
 Registry.cycle_start = 0
 Registry.rate = 1
-
-# import matplotlib
-# # matplotlib.use('Agg')
-# import matplotlib.pyplot as plt
-
-show = False
-
 
 #------------------------------------------------------------------
 # Create a signal for demonstration of IIR/FIR/FiltFilt filtering .

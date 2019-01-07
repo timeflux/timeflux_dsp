@@ -1,20 +1,20 @@
-"""Tests for nodes"""
+"""Tests for decimation nodes"""
 
-import pytest
 import pandas as pd
 import numpy as np
 from timeflux.core.registry import Registry
-from timeflux.helpers import *
-import xarray as xr
 
+from timeflux.test.helpers import DummyData
+
+from timeflux_dsp.nodes.filters import DropRows, Resample
 
 Registry.cycle_start = 0
 Registry.rate = 1
 
-from timeflux_dsp.nodes.filters import DropRows, Resample
+
 
 fs=10
-data = helpers.DummyData( rate=fs, jitter=.05,)
+data = DummyData( rate=fs, jitter=.05,)
 all_data = data._data
 
 def test_droprows_1():
@@ -58,7 +58,7 @@ def test_resample():
     port_o = []
 
     expected_o = pd.DataFrame(data=np.array([[0.47955525, 0.37772175, 0.77298   , 0.830601  , 0.55936975],
-                                            [0.51563125, 0.82348875, 0.844093  , 0.137803  , 0.45838375]]),
+                                             [0.51563125, 0.82348875, 0.844093  , 0.137803  , 0.45838375]]),
                               index = all_data.index[[0,2]])
     expected_p = all_data.iloc[[4]]
 
