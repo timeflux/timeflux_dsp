@@ -1,6 +1,6 @@
-# An example Timeflux plugin
+# Timeflux DSP plugin
 
-This plugin provides timeflux nodes and meta-nodes for real time 
+This plugin provides timeflux nodes and meta-nodes for real time
 digital signal processing of time series.
 
 ## Installation
@@ -17,10 +17,10 @@ $ pip install git+https://github.com/timeflux/timeflux_dsp
 ## Modules
 
 ### filters
-This module contains digital filters nodes (FIR, IIR, ...) and resampling nodes.  
+This module contains digital filters nodes (FIR, IIR, ...) and resampling nodes.
 
-### spectral 
+### spectral
 This module contains nodes for spectral analysis.
 
-### peaks 
-This module contains nodes to detect peaks on 1D data, and estimates their characteristics. 
+### peaks
+This module contains nodes to detect peaks on 1D data, and estimates their characteristics.
