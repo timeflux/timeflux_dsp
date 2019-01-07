@@ -21,7 +21,7 @@ class RealTimeDetect(Node):
         o_events (Port): Events output, provides DataFrame.
 
     Example:
-       .. literalinclude:: /../../timeflux/timeflux_dsp/test/graphs/droprows.yaml
+       .. literalinclude:: /../../timeflux_dsp/test/graphs/droprows.yaml
            :language: yaml
 
     Example:
@@ -31,7 +31,7 @@ class RealTimeDetect(Node):
         * ``tol`` = `0.5`
         * ``reset`` = None
 
-        .. image:: /../../timeflux/timeflux_dsp/doc/static/image/realtimepeaks_io.png
+        .. image:: /../../timeflux_dsp/doc/static/image/realtimepeaks_io.png
            :align: center
 
         self.o_events.data::
@@ -61,7 +61,7 @@ class RealTimeDetect(Node):
 
         See the illustration above:
 
-        .. image:: /../../timeflux/timeflux_dsp/doc/static/image/realtimepeaks_illustration.png
+        .. image:: /../../timeflux_dsp/doc/static/image/realtimepeaks_illustration.png
             :align: center
 
 
