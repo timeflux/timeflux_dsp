@@ -46,11 +46,11 @@ class FFT(Node):
               * freqs    (freqs) float64 0.0 2.0 4.0 -4.0 -2.0
               * space    (space) object 'A' 'B' 'C'
 
-    Note:
+    Notes:
        This node should be used after a buffer.
 
     References:
-        * scipy.fftpack <https://docs.scipy.org/doc/scipy/reference/fftpack.html>`_
+        * `scipy.fftpack <https://docs.scipy.org/doc/scipy/reference/fftpack.html>`_
 
     """
     def __init__(self, fs=1.0,  nfft=None, return_onesided=True):
