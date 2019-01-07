@@ -103,7 +103,7 @@ class Resample(Node):
         This node should be used after a buffer to assure that the FFT window has always the same length.
 
     References:
-        See documentation of scipy.signal.resample.
+        See documentation of `scipy.signal.resample <https://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.signal.resample.html>`_ .
 
     """
 
@@ -172,7 +172,9 @@ class IIRFilter(Node):
 
     Notes:
          This node ensures continuity  across chunk boundaries, using a recursive algorithm, based on a cascade of biquads filters
-        (see documentation here: http://www.eas.uccs.edu/~mwickert/ece5655/lecture_notes/ece5655_chap8.pdf) and scipy.signal.sosfilt.
+        (see documentation `here <http://www.eas.uccs.edu/~mwickert/ece5655/lecture_notes/ece5655_chap8.pdf>`_ )
+        and `scipy.signal.sosfilt <https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.sosfilt.html>`_ .
+
 
         The filter is initialized to have a minimal step response, but needs a "warmup" period for the filtering to be stable, leeding to small artifacts on the first few chunks.
         The IIR filter is faster than the FIR filter and delays the signal less but this delay is not constant and the stability not guarenteed.
