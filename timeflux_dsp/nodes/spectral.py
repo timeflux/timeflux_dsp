@@ -1,11 +1,4 @@
-# -*- coding: utf-8 -*-
-
-"""
-
-This module contains nodes for spectral analysis with timeflux.
-
-"""
-
+"""This module contains nodes for spectral analysis with Timeflux."""
 
 import xarray as xr
 import logging
@@ -16,20 +9,19 @@ from timeflux.helpers.clock import *
 
 
 class FFT(Node):
-    """
-    Compute the one-dimensional discrete Fourier Transform for each column using the fast fourier tranform algorithm.
+    """Compute the one-dimensional discrete Fourier Transform for each column using the Fast Fourier Tranform algorithm.
 
     Attributes:
-        i (Port): default data input, expects DataFrame.
-        o (Port): default output, provides XArray.
-
+        i (Port): default input, expects DataFrame.
+        o (Port): default output, provides DataArray.
 
     Example:
 
         In this exemple, we simulate a white noise and we apply FFT:
-         * fs = 10.O
-         * nfft = 5
-         * return_onesided = False
+
+         * ``fs`` = `10.0`
+         * ``nfft`` = `5`
+         * ``return_onesided`` = `False`
 
         self.i.data::
 
@@ -54,25 +46,22 @@ class FFT(Node):
               * freqs    (freqs) float64 0.0 2.0 4.0 -4.0 -2.0
               * space    (space) object 'A' 'B' 'C'
 
-
     Note:
        This node should be used after a buffer.
 
-    **Reference**:
+    References:
+        * scipy.fftpack <https://docs.scipy.org/doc/scipy/reference/fftpack.html>`_
 
-       See the documentation from  `fftpack <https://github.com/scipy/scipy/tree/master/scipy/fftpack>`_
     """
     def __init__(self, fs=1.0,  nfft=None, return_onesided=True):
         """
-               Initialize the node.
-
-               Args:
-                   fs (float): Nominal sampling rate of the input data.
-                   nfft (int, None): Length of the Fourier transform. The default is the length of the chunk.
-                   return_onesided (bool, True): If `True`, return a one-sided spectrum for real data.
-                                                 If`False` return a two-sided spectrum.
-                                                 (Note that for complex data, a two-sided spectrum is always returned.)
-
+            Args:
+                fs (float): Nominal sampling rate of the input data.
+                nfft (int|None): Length of the Fourier transform. Default: length of the chunk.
+                return_onesided (bool): If `True`, return a one-sided spectrum for real data.
+                                              If `False` return a two-sided spectrum.
+                                              (Note that for complex data, a two-sided spectrum is always returned.)
+                                              Default: `True`.
         """
 
         self._fs = fs

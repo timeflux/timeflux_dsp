@@ -1,11 +1,4 @@
-# -*- coding: utf-8 -*-
-
-
-"""
-
-This module contains nodes for signal filtering
-
-"""
+"""This module contains nodes for signal filtering."""
 
 from timeflux.core.node import Node
 from scipy import signal
@@ -16,37 +9,36 @@ from ..utils.filters import _construct_fir_filter, _get_com_factor, _construct_i
 
 
 class DropRows(Node):
-    """Drop Rows (decimate) signal by an integer factor.
+    """Decimate signal by an integer factor.
 
-        This node uses pandas computationally efficient functions to drop rows.
-        By default, it simply transfers one row out of `factor` and drops the others.
-        If ``method`` is "mean" (resp. "median"), it applies a rolling window of length equals ``factor``, computes the mean and returns one value per window.
-        It maintains an internal state to ensure that every k'th sample is picked even across chunk boundaries.
+    This node uses Pandas computationally efficient functions to drop rows.
+    By default, it simply transfers one row out of ``factor`` and drops the others.
+    If ``method`` is `mean` (resp. median), it applies a rolling window of length equals ``factor``, computes the mean and returns one value per window.
+    It maintains an internal state to ensure that every k'th sample is picked even across chunk boundaries.
 
     Attributes:
-        i (Port): default data input, expects DataFrame.
-        o (Port): default output, provides DataFrame.
+        i (Port): Default input, expects DataFrame.
+        o (Port): Default output, provides DataFrame.
 
     Example:
-
-       .. literalinclude:: /../../timeflux/timeflux_dsp/test/graphs/droprows.yaml
+       .. literalinclude:: /../../timeflux_dsp/test/graphs/droprows.yaml
            :language: yaml
 
-    **Illustration**:
-
+    Example:
         In this exemple, we generate white noise to stream and we drop one sample out of two using DropRows, setting:
-            * factor = 2
-            * method = None (see orange trace) | method = "mean" (see green trace)
 
-        .. image:: /../../timeflux/timeflux_dsp/doc/static/image/droprows_io.png
+        * ``factor`` = `2`
+        * ``method`` = `None` (see orange trace) | ``method`` = `"mean"` (see green trace)
+
+        .. image:: /../../timeflux_dsp/doc/static/image/droprows_io.png
            :align: center
 
-    Notes:
 
-        Note that this node is not supposed to dejitter the timestamps, so if the input chunk is not uniformly sampled , the output chunk won’t either.
+    Notes:
+        Note that this node is not supposed to dejitter the timestamps, so if the input chunk is not uniformly sampled, the output chunk won’t be either.
+
         Also, this filter does not implement any anti-aliasing filter. Hence, it is recommended to precede this node by
         a low-pass filter (e.g., FIR or IIR) which cuts out below half of the new sampling rate.
-
 
     """
 
@@ -54,7 +46,7 @@ class DropRows(Node):
         """
          Args:
             factor (int): Decimation factor. Only every k'th sample will be transferred into the output.
-            method (str|None): Method to use to drop rows. If None, the values are transferred as it. If "mean" (resp. "median"),
+            method (str|None): Method to use to drop rows. If `None`, the values are transferred as it. If `mean` (resp. median),
                                the mean (resp. median) of the samples is taken.
         """
         self._factor = factor
@@ -91,33 +83,33 @@ class DropRows(Node):
 class Resample(Node):
     """Resample signal.
 
-        This node calls scipy.signal.resample function to decimate the signal using Fourier method.
+    This node calls the `scipy.signal.resample` function to decimate the signal using Fourier method.
 
     Attributes:
-        i (Port): default data input, expects DataFrame.
-        o (Port): default output, provides DataFrame.
+        i (Port): Default input, expects DataFrame.
+        o (Port): Default output, provides DataFrame.
 
     Example:
-       .. literalinclude:: /../../timeflux/timeflux_dsp/test/graphs/resample.yaml
+        .. literalinclude:: /../../timeflux_dsp/test/graphs/resample.yaml
            :language: yaml
 
     Notes:
-
         This node should be used after a buffer to assure that the FFT window has always the same length.
 
-    **Reference**:
-:
-        See documentation of `scipy.signal.resample <https://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.signal.resample.html>`_ .
+    References:
+
+        * `scipy.signal.resample <https://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.signal.resample.html>`_
 
     """
 
     def __init__(self, factor, window=None):
 
         """
-         Args:
+        Args:
             factor (int): Decimation factor. Only every k'th sample will be transferred into the output.
-            window (str|list|float|None): Specifies the window applied to the signal in the Fourier domain.
+            window (str|list|float): Specifies the window applied to the signal in the Fourier domain. Default: `None`.
         """
+
         self._factor = factor
         self._window = window
         self._previous = pd.DataFrame()
@@ -145,44 +137,46 @@ class Resample(Node):
 class IIRFilter(Node):
     """Apply IIR filter to signal.
 
-    If ``sos`` is None, this node uses adapted methods from mne.filters to design the filter coefficients based on the specified parameters.
+    If ``sos`` is `None`, this node uses adapted methods from mne.filters to design the filter coefficients based on the specified parameters.
     If no transition band is given, default is to use :
-        * l_trans_bandwidth =  min(max(l_freq * 0.25, 2), l_freq)
-        * h_trans_bandwidth =   min(max(h_freq * 0.25, 2.), fs / 2. - h_freq)
+
+    * l_trans_bandwidth =  min(max(l_freq * 0.25, 2), l_freq)
+    * h_trans_bandwidth =   min(max(h_freq * 0.25, 2.), fs / 2. - h_freq)
 
     Else, it uses ``sos`` as filter coefficients.
 
-    Once the kernel has been estimated, the node applies the filtering to each columns in ``columns`` using scipy.signal.sosfilt to generate the output given the input,
+    Once the kernel has been estimated, the node applies the filtering to each columns in ``columns`` using `scipy.signal.sosfilt` to generate the output given the input,
     hence ensures continuity  across chunk boundaries,
 
     Attributes:
-        i (Port): default data input, expects DataFrame.
-        o (Port): default output, provides DataFrame.
+        i (Port): Default input, expects DataFrame.
+        o (Port): Default output, provides DataFrame.
 
     Example:
-
         In this exemple, we generate a signal that is the sum of two sinus with respective periods of 1kHz and 15kHz and respective amplitudes of 1 and 0.5.
         We stream this signal using the IIRFilter node, designed for lowpass filtering at cutoff frequency 6kHz, order 3.
-            * order = 3
-            * freqs = [6000]
-            * mode= "lowpass"
+
+        * ``order`` = `3`
+        * ``freqs`` = `[6000]`
+        * ``mode`` = `"lowpass"`
 
         We plot the input signal, the output signal and the corresponding offline filtering.
 
-        .. image:: /../../timeflux/timeflux_dsp/doc/static/image/iirfilter_io.png
+        .. image:: /../../timeflux_dsp/doc/static/image/iirfilter_io.png
            :align: center
 
-
-
     Notes:
-
-         This node ensures continuity  across chunk boundaries, using a recursive algorithm, based on a cascade of biquads filters
-        (see documentation `here <http://www.eas.uccs.edu/~mwickert/ece5655/lecture_notes/ece5655_chap8.pdf>`_ )
-        and `scipy.signal.sosfilt <https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.sosfilt.html>`_ .
-
+        This node ensures continuity across chunk boundaries, using a recursive algorithm, based on a cascade of biquads filters.
 
         The filter is initialized to have a minimal step response, but needs a "warmup" period for the filtering to be stable, leeding to small artifacts on the first few chunks.
+
         The IIR filter is faster than the FIR filter and delays the signal less but this delay is not constant and the stability not guarenteed.
+
+    References:
+
+            * `Real-Time IIR Digital Filters <http://www.eas.uccs.edu/~mwickert/ece5655/lecture_notes/ece5655_chap8.pdf>`_
+            * `scipy.signal.sosfilt <https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.sosfilt.html>`_
+
 
     """
 
@@ -191,14 +185,14 @@ class IIRFilter(Node):
         """
         Args:
             fs (float): Nominal sampling rate of the input data.
-            columns (list|'all'): Columns to apply filter on. Default to all.
-            order (int|None): Filter order
-            freqs (list): Transition frequencies
-            mode (str|'bandpass'): Filter mode (lowpass, highpass, bandstop, bandpass)
-            design (str|'butter'): Design of the transfert function of the filter
-            pass_loss (float|3.0): Maximum attenuation in passband
-            stop_atten (float|50.0): Minimum attenuation in stop_band
-            sos (array|None) : Array of second-order sections (sos) representation, must have shape (n_sections, 6).
+            columns (list|"all"): Columns to apply filter on. Default: `all`.
+            order (int, optional): Filter order. Default: `None`.
+            freqs (list): Transition frequencies.
+            mode (str): Filter mode (`lowpass`, `highpass`, `bandstop`, `bandpass`). Default: `bandpass`.
+            design (str): Design of the transfert function of the filter. Default: `butter`
+            pass_loss (float): Maximum attenuation in passband. Default: `3.0`.
+            stop_atten (float): Minimum attenuation in stop_band. Default: `50.0`.
+            sos (array, optional) : Array of second-order sections (sos) representation, must have shape (n_sections, 6). Default: `None`.
         """
 
         self._order = order
@@ -247,39 +241,40 @@ class IIRFilter(Node):
 class FIRFilter(Node):
     """Apply FIR filter to signal.
 
-    If ``coeffs`` is None, this node uses adapted methods from mne.filters to design the filter coefficients based on the specified parameters.
-    If no transition band is given, default is to use :
-        * l_trans_bandwidth =  min(max(l_freq * 0.25, 2), l_freq)
-        * h_trans_bandwidth =   min(max(h_freq * 0.25, 2.), fs / 2. - h_freq)
+    If ``coeffs`` is `None`, this node uses adapted methods from *mne.filters* to design the filter coefficients based on the specified parameters.
+    If no transition band is given, default is to use:
 
+    * l_trans_bandwidth =  min(max(l_freq * 0.25, 2), l_freq)
+    * h_trans_bandwidth =   min(max(h_freq * 0.25, 2.), fs / 2. - h_freq)
 
     Else, it uses ``coeffs`` as filter coefficients.
 
-    It applies the filtering to each columns in ``columns`` using scipy.signal.lfilter to generate the output given the input,
+    It applies the filtering to each columns in ``columns`` using `scipy.signal.lfilter` to generate the output given the input,
     hence ensures continuity  across chunk boundaries,
 
-    The delay introduced is estimated and stored in the meta "FIRFilter"-->"delay".
+    The delay introduced is estimated and stored in the meta ``FIRFilter``, ``delay``.
 
     Attributes:
-        i (Port): default data input, expects DataFrame.
-        o (Port): default output, provides DataFrame and meta.
+        i (Port): Default input, expects DataFrame.
+        o (Port): Default output, provides DataFrame and meta.
 
     Example:
-
         In this exemple, we generate a signal that is the sum of two sinus with respective periods of 1kHz and 15kHz and respective amplitudes of 1 and 0.5.
         We stream this signal using the FIRFilter node, designed for lowpass filtering at cutoff frequency 6kHz, order 20.
-            * order = 20
-            * freqs = [6000, 6100]
-            * mode= "lowpass"
+
+        * ``order`` = `20`
+        * ``freqs`` = `[6000, 6100]`
+        * ``mode`` = `"lowpass"`
+
         The FIR is a linear phase filter, so it allows one to correct for the introduced delay. Here, we retrieve the input sinus of period 1kHz.
         We plot the input signal, the output signal, the corresponding offline filtering and the output signal after delay correction.
 
-        .. image:: /../../timeflux/timeflux_dsp/doc/static/image/firfilter_io.png
+        .. image:: /../../timeflux_dsp/doc/static/image/firfilter_io.png
            :align: center
 
     Notes:
-
         The FIR filter ensures a linear phase response, but is computationnaly more costly than the IIR filter.
+
         The filter is initialized to have a minimal step response, but needs a "warmup" period for the filtering to be stable, leeding to small artifacts on the first few chunks.
 
     """
@@ -289,14 +284,14 @@ class FIRFilter(Node):
         """
          Args:
             fs (float): Nominal sampling rate of the input data.
-            columns (list|'all'): Columns to apply filter on. Default to all.
-            order (int): Filter order
-            freqs (list): Transition frequencies
-            mode (str|'bandpass'): Filter mode ("lowpass", "highpass", "bandstop" or "bandpass")
-            design (str|'firwin2'): Design of the transfert function of the filter
-            phase (str|"linear"): Phase response ("zero", "zero-double" or "minimum")
-            window (float|"hamming"): The window to use in FIR design, ("hamming", "hann", or "blackman".)
-            coeffs (array|None) : Custom coeffs to pass as "b" in signal.filter.
+            columns (list|"all", optional): Columns to apply filter on. Default: `all`.
+            order (int): Filter order.
+            freqs (list): Transition frequencies.
+            mode (str, optional): Filter mode (`lowpass`, `highpass`, `bandstop` or `bandpass`). Default: `bandpass`.
+            design (str, optional): Design of the transfert function of the filter. Default: `firwin2`.
+            phase (str, optional): Phase response (`linear`, `zero`, `zero-double` or `minimum`). Default: `linear`.
+            window (str, optional): The window to use in FIR design, (`hamming`, `hann`, or `blackman`). Default: `hamming`.
+            coeffs (array, optional): Custom coeffs to pass as ``b`` in `signal.filter`. Default: `None`.
         """
 
         self._order = order
