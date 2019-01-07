@@ -23,6 +23,38 @@ class FFT(Node):
         i (Port): default data input, expects DataFrame.
         o (Port): default output, provides XArray.
 
+
+    Example:
+
+            In this exemple, we simulate a white noise and we apply FFT:
+            * fs = 10.O
+            * nfft = 5
+            * return_onesided = False
+
+            self.i.data::
+
+                                                  A         B         C
+                2017-12-31 23:59:59.998745401  0.185133  0.541901  0.872946
+                2018-01-01 00:00:00.104507143  0.732225  0.806561  0.658783
+                2018-01-01 00:00:00.202319939  0.692277  0.849196  0.249668
+                2018-01-01 00:00:00.300986584  0.489425  0.221209  0.987668
+                2018-01-01 00:00:00.396560186  0.944059  0.039427  0.705575
+
+
+            self.o.data::
+
+                xarray.DataArray (times: 1, freqs: 5, space: 3)
+                array([[[ 3.043119+0.j      ,  2.458294+0.j      ,  3.47464 +0.j      ],
+                        [-0.252884+0.082233j, -0.06265 -1.098709j,  0.29353 +0.478287j],
+                        [-0.805843+0.317437j,  0.188256+0.146341j,  0.151515-0.674376j],
+                        [-0.805843-0.317437j,  0.188256-0.146341j,  0.151515+0.674376j],
+                        [-0.252884-0.082233j, -0.06265 +1.098709j,  0.29353 -0.478287j]]])
+                Coordinates:
+                  * times    (times) datetime64[ns] 2018-01-01T00:00:00.396560186
+                  * freqs    (freqs) float64 0.0 2.0 4.0 -4.0 -2.0
+                  * space    (space) object 'A' 'B' 'C'
+
+
     Note:
        This node should be used after a buffer.
        For more details, see documentation from  https://github.com/scipy/scipy/tree/master/scipy/fftpack

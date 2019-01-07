@@ -98,7 +98,6 @@ class Resample(Node):
        .. literalinclude:: /../../timeflux/timeflux_dsp/test/graphs/resample.yaml
            :language: yaml
 
-
     Notes:
         This node should be used after a buffer to assure that the FFT window has always the same length.
 
