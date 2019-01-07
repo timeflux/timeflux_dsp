@@ -28,10 +28,12 @@ class DropRows(Node):
         o (Port): default output, provides DataFrame.
 
     Example:
+
        .. literalinclude:: /../../timeflux/timeflux_dsp/test/graphs/droprows.yaml
            :language: yaml
 
-    Illustration:
+    **Illustration**:
+
         In this exemple, we generate white noise to stream and we drop one sample out of two using DropRows, setting:
             * factor = 2
             * method = None (see orange trace) | method = "mean" (see green trace)
@@ -40,6 +42,7 @@ class DropRows(Node):
            :align: center
 
     Notes:
+
         Note that this node is not supposed to dejitter the timestamps, so if the input chunk is not uniformly sampled , the output chunk won’t either.
         Also, this filter does not implement any anti-aliasing filter. Hence, it is recommended to precede this node by
         a low-pass filter (e.g., FIR or IIR) which cuts out below half of the new sampling rate.
@@ -99,9 +102,11 @@ class Resample(Node):
            :language: yaml
 
     Notes:
+
         This node should be used after a buffer to assure that the FFT window has always the same length.
 
-    References:
+    **Reference**:
+:
         See documentation of `scipy.signal.resample <https://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.signal.resample.html>`_ .
 
     """
@@ -170,6 +175,7 @@ class IIRFilter(Node):
 
 
     Notes:
+
          This node ensures continuity  across chunk boundaries, using a recursive algorithm, based on a cascade of biquads filters
         (see documentation `here <http://www.eas.uccs.edu/~mwickert/ece5655/lecture_notes/ece5655_chap8.pdf>`_ )
         and `scipy.signal.sosfilt <https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.sosfilt.html>`_ .
@@ -272,6 +278,7 @@ class FIRFilter(Node):
            :align: center
 
     Notes:
+
         The FIR filter ensures a linear phase response, but is computationnaly more costly than the IIR filter.
         The filter is initialized to have a minimal step response, but needs a "warmup" period for the filtering to be stable, leeding to small artifacts on the first few chunks.
 
