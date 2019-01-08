@@ -1,4 +1,5 @@
 """This module contains nodes for signal filtering."""
+
 from timeflux.core.node import Node
 from scipy import signal
 from timeflux.helpers.clock import *
@@ -29,7 +30,7 @@ class DropRows(Node):
         * ``factor`` = `2`
         * ``method`` = `None` (see orange trace) | ``method`` = `"mean"` (see green trace)
 
-        .. image:: /../../timeflux_dsp/doc/static/image/droprows_io.png
+        .. image:: /../../timeflux_dsp/doc/static/image/droprows_io.svg
            :align: center
 
 
@@ -161,7 +162,7 @@ class IIRFilter(Node):
 
         We plot the input signal, the output signal and the corresponding offline filtering.
 
-        .. image:: /../../timeflux_dsp/doc/static/image/iirfilter_io.png
+        .. image:: /../../timeflux_dsp/doc/static/image/iirfilter_io.svg
            :align: center
 
     Notes:

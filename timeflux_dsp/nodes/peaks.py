@@ -31,7 +31,7 @@ class RealTimeDetect(Node):
         * ``tol`` = `0.5`
         * ``reset`` = None
 
-        .. image:: /../../timeflux_dsp/doc/static/image/realtimepeaks_io.png
+        .. image:: /../../timeflux_dsp/doc/static/image/realtimepeaks_io.svg
            :align: center
 
         self.o_events.data::
