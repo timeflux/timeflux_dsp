@@ -25,7 +25,7 @@ class RealTimeDetect(Node):
            :language: yaml
 
     Example:
-        In this exemple, we stream a photoplethysmogram signal scaled between -1 and 1 and we use the node RealTimeDetect to detect peaks and valleys.
+        In this example, we stream a photoplethysmogram signal scaled between -1 and 1 and we use the node RealTimeDetect to detect peaks and valleys.
 
         * ``delta`` = `0.1`
         * ``tol`` = `0.5`

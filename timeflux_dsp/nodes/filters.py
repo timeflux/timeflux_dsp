@@ -152,7 +152,7 @@ class IIRFilter(Node):
         o (Port): Default output, provides DataFrame.
 
     Example:
-        In this exemple, we generate a signal that is the sum of two sinus with respective periods of 1kHz and 15kHz and respective amplitudes of 1 and 0.5.
+        In this example, we generate a signal that is the sum of two sinus with respective periods of 1kHz and 15kHz and respective amplitudes of 1 and 0.5.
         We stream this signal using the IIRFilter node, designed for lowpass filtering at cutoff frequency 6kHz, order 3.
 
         * ``order`` = `3`
