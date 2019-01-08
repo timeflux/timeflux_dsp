@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from timeflux.core.registry import Registry
 
-from timeflux.test.helpers import DummyData
+import helpers
 
 from timeflux_dsp.nodes.filters import DropRows, Resample
 
@@ -14,7 +14,7 @@ Registry.rate = 1
 
 
 fs=10
-data = DummyData( rate=fs, jitter=.05,)
+data = helpers.DummyData( rate=fs, jitter=.05,)
 all_data = data._data
 
 def test_droprows_1():

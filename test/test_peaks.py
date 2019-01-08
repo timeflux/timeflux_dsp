@@ -3,7 +3,7 @@
 import pandas as pd
 import numpy as np
 from timeflux.core.registry import Registry
-from .helpers import CustomData
+import helpers
 
 from timeflux_dsp.nodes.peaks import RealTimeDetect, WindowDetect, Rate
 
@@ -20,7 +20,7 @@ def assert_dict_almost_equal(dict1, dict2, decimal=7):
 data_ppg = pd.read_csv("../test/data/test_data_ppg.csv", index_col=None)
 data_ppg = pd.DataFrame(index=pd.to_datetime(data_ppg['index'].values), data = data_ppg["PPG"].values, columns=['PPG'])
 
-data = CustomData( data=data_ppg[:100])
+data = helpers.CustomData( data=data_ppg[:100])
 
 def test_realtimepeak():
     node = RealTimeDetect(delta=0.1, tol=0.5)

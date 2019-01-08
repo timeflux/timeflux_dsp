@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from timeflux.core.registry import Registry
 
-from .helpers import CustomData
+import helpers
 from copy import copy
 
 from timeflux_dsp.nodes.filters import FIRFilter, IIRFilter
@@ -38,7 +38,7 @@ data_noise = pd.DataFrame(data=copy(noise), index = t)
 
 data_input = data_clean + data_noise
 
-custom_data = CustomData(data_input)
+custom_data = helpers.CustomData(data_input)
 
 #------------------------------------------------------------------
 # Create a IIR filter and apply it to signal.
