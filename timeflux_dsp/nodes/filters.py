@@ -5,7 +5,7 @@ from scipy import signal
 from timeflux.helpers.clock import *
 from timeflux.core.io import Port
 
-from ..utils.filters import _construct_fir_filter, _get_com_factor, _construct_iir_filter, _design_edges
+from ..utils.filters import construct_fir_filter, _get_com_factor, construct_iir_filter, design_edges
 
 
 class DropRows(Node):
@@ -228,8 +228,8 @@ class IIRFilter(Node):
 
         if self._sos_custom is None:
             # Calculate an IIR filter kernel for a given sampling rate.
-            sos, self._freqs = _construct_iir_filter(fs=self._fs, freqs=self._inputfreqs, mode=self._mode,
-                                                     order=self._order, design="butter", pass_loss=3.0, stop_atten=50.0)
+            sos, self._freqs = construct_iir_filter(fs=self._fs, freqs=self._inputfreqs, mode=self._mode,
+                                                    order=self._order, design="butter", pass_loss=3.0, stop_atten=50.0)
             return sos
         else:
             if self._sos_custom.shape[1] == 6:
@@ -331,10 +331,10 @@ class FIRFilter(Node):
         nyq = self._fs / 2.0
 
         if self._coeffs_custom is None:
-            self._freqs, gains, _, _ = _design_edges(freqs=self._freqs, nyq=nyq, mode=self._mode)
+            self._freqs, gains, _, _ = design_edges(freqs=self._freqs, nyq=nyq, mode=self._mode)
 
-            fir_coeffs = _construct_fir_filter(self._fs, self._freqs, gains, self._order, self._phase, self._window,
-                                               self._design)
+            fir_coeffs = construct_fir_filter(self._fs, self._freqs, gains, self._order, self._phase, self._window,
+                                              self._design)
         else:
             fir_coeffs = self._coeffs_custom
         warmup = self._order - 1
