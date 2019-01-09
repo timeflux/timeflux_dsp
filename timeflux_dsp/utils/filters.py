@@ -43,7 +43,7 @@ def _nyq_to_hz(freqs, nyq):
 
 
 def design_edges(freqs, nyq, mode):
-    """ Design filter edges.
+    """Design filter edges.
 
     Args:
         freqs (list): Transition frequencies in Hz.
@@ -56,23 +56,20 @@ def design_edges(freqs, nyq, mode):
         list: wp.  Passband edge frequencies.
         list: ws. Stopband edge frequencies.
 
-    ========================
-    Filter edges design
-    ========================
+    **Filter edges design**
 
     The -6 dB point for all filters is in the middle of the transition band.
 
     If no transition band is given, default is to use:
 
         * ``l_trans_bandwidth`` =
-         .. math::  min(max(l_{freq} * 0.25, 2), l_{freq})
+          .. math::  min(max(l_{freq} * 0.25, 2), l_{freq})
         * ``h_trans_bandwidth`` =
-         .. math::
-                    min(max(h_{freq} * 0.25, 2.), fs / 2. - h_{freq})
+          .. math:: min(max(h_{freq} * 0.25, 2.), fs / 2. - h_{freq})
 
     **Band-pass filter**
 
-        The frequency response is (approximately) given by:
+    The frequency response is (approximately) given by:
 
     .. image:: /../../timeflux_dsp/doc/static/image/edges_bandpass.svg
 
@@ -97,7 +94,7 @@ def design_edges(freqs, nyq, mode):
 
     **Band-stop filter**
 
-        The frequency response is (approximately) given by:
+    The frequency response is (approximately) given by:
 
     .. image:: /../../timeflux_dsp/doc/static/image/edges_bandstop.svg
 
