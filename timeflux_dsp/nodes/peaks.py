@@ -74,12 +74,12 @@ class RealTimeDetect(Node):
 
         * allow for adaptive parametrization.
     """
-    def __init__(self, delta=15, tol=0.1, reset=None):
+    def __init__(self, delta, tol, reset=None):
         """
         Args:
             delta (float): Threshold for peak/valley matching in amplitude. This can be seen as the minimum significant change enough to detect a peak/valley.
             tol (float): Tolerence for peak/valley matching, in seconds. This can be seen as the minimum time difference between two peaks/valleys.
-            reset (float): Reset threshold, in seconds. This can be seen as the maximum duration of plausible transitions between peaks and valleys.
+            reset (float): Reset threshold, in seconds. This can be seen as the maximum duration of plausible transitions between peaks and valleys. Default: None.
         """
 
         self._delta = delta  # Peak threshold
