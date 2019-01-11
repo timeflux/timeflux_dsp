@@ -17,21 +17,21 @@ Registry.rate = 1
 # Create a signal for demonstration of IIR/FIR/FiltFilt filtering .
 #------------------------------------------------------------------
 # 320 samples of (1000Hz + 15000 Hz) at 48 kHz
-sample_rate = 48*1e3
-nsamples = 320
+sample_rate = 50
+nsamples = 300
 
-F_1KHz = 1*1e3
-A_1KHz = 1.0
+F_carrier = 0.5
+A_carrier = 1.0
 
-F_15KHz = 15*1e3
-A_15KHz = 0.5
+F_noise = 10
+A_noise = 0.1
 
 # The cutoff frequency of the filter: 6KHz
-cutoff_hz = 6*1e3
+cutoff_hz = 3
 
 t = np.arange(nsamples) / sample_rate
-signal = A_1KHz * np.sin(2*np.pi*F_1KHz*t)
-noise = A_15KHz*np.sin(2*np.pi*F_15KHz*t)
+signal = A_carrier * np.sin(2*np.pi*F_carrier*t)
+noise = A_noise*np.sin(2*np.pi*F_noise*t)
 
 data_clean = pd.DataFrame(data=copy(signal), index = t)
 data_noise = pd.DataFrame(data=copy(noise), index = t)
@@ -46,8 +46,8 @@ custom_data = helpers.CustomData(data_input)
 # create filter
 node_iir = IIRFilter(fs = sample_rate, columns = 'all', order = 3, freqs = [cutoff_hz], mode="lowpass")
 
-expected_sos = np.array([[ 0.03168934,  0.06337869,  0.03168934,  1.        , -0.41421356,  0.        ],
-                         [ 1.        ,  1.        ,  0.        ,  1.        , -1.0448155 ,  0.47759225]])
+expected_sos = np.array([[ 0.00475052,  0.00950105,  0.00475052,  1.        , -0.6795993 ,    0.        ],
+                        [ 1.        ,  1.        ,  0.        ,  1.        , -1.57048578,  0.68910035]])
 
 
 
@@ -107,6 +107,10 @@ def test_custom_sos():
 
 # create the filter
 node_fir = FIRFilter(fs=sample_rate, columns="all", order=20, freqs=[cutoff_hz, cutoff_hz+1], mode="lowpass")
+expected_coeffs = np.array([-0.00217066, -0.00208553, -0.00108039,  0.00392436,  0.01613796,
+                            0.03711417,  0.06535715,  0.09608169,  0.12241194,  0.13763991,
+                            0.13763991,  0.12241194,  0.09608169,  0.06535715,  0.03711417,
+                            0.01613796,  0.00392436, -0.00108039, -0.00208553, -0.00217066])
 
 def test_cascade_firfilter():
     # reset the data streamer
@@ -133,11 +137,6 @@ def test_cascade_firfilter():
     delay = node_fir.o.meta['FIRFilter']['delay'][0]
 
     # assert filters coeffs are correct
-    expected_coeffs = np.array([2.77264604e-03, 2.93000384e-03, -1.88582923e-04, -1.08779615e-02,
-                                -2.48315398e-02, -2.37339883e-02, 1.45134845e-02, 9.45743397e-02,
-                                1.90496858e-01, 2.56391830e-01, 2.56391830e-01, 1.90496858e-01,
-                                9.45743397e-02, 1.45134845e-02, -2.37339883e-02, -2.48315398e-02,
-                                -1.08779615e-02, -1.88582923e-04, 2.93000384e-03, 2.77264604e-03])
 
     np.testing.assert_array_almost_equal(node_fir._coeffs[0], expected_coeffs)
 
