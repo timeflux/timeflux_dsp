@@ -55,29 +55,36 @@ class DropRows(Node):
 
     def update(self):
 
-        self.o = self.i
-        if self.i.data is not None:
-            if not self.i.data.empty:
-                if not self._previous.empty:
-                    self.i.data = pd.concat([self._previous, self.i.data], axis=0)
-                if len(self.i.data) % self._factor == 0:
-                    self._previous = pd.DataFrame()
-                else:
-                    self._previous = self.i.data.iloc[(len(self.i.data) // self._factor) * self._factor:]
-                    self.i.data = self.i.data.iloc[: (len(self.i.data) // self._factor) * self._factor]
-                if self._method is None:
-                    self.o.data = self.i.data.iloc[np.arange(self._factor - 1, len(self.i.data), self._factor)]
-                else:
-                    if self._method == "mean":
-                        self.o.data = \
-                            self.i.data.rolling(window=self._factor, min_periods=self._factor,
-                                                center=False).mean().iloc[
-                                np.arange(self._factor - 1, len(self.i.data), self._factor)]
-                    elif self._method == "median":
-                        self.o.data = \
-                            self.i.data.rolling(window=self._factor, min_periods=self._factor,
-                                                center=False).median().iloc[
-                                np.arange(self._factor - 1, len(self.i.data), self._factor)]
+        # copy the meta
+        self.o.meta = self.i.meta
+
+        # When we have not received data, there is nothing to do
+        if self.i.data is None or self.i.data.empty:
+            return
+
+        # At this point, we are sure that we have some data to process
+        if not self._previous.empty:
+            self.i.data = pd.concat([self._previous, self.i.data], axis=0)
+
+        if len(self.i.data) % self._factor == 0:
+            self._previous = pd.DataFrame()
+        else:
+            self._previous = self.i.data.iloc[(len(self.i.data) // self._factor) * self._factor:]
+            self.i.data = self.i.data.iloc[: (len(self.i.data) // self._factor) * self._factor]
+
+        if self._method is None:
+            self.o.data = self.i.data.iloc[np.arange(self._factor - 1, len(self.i.data), self._factor)]
+        else:
+            if self._method == "mean":
+                self.o.data = \
+                    self.i.data.rolling(window=self._factor, min_periods=self._factor,
+                                        center=False).mean().iloc[
+                        np.arange(self._factor - 1, len(self.i.data), self._factor)]
+            elif self._method == "median":
+                self.o.data = \
+                    self.i.data.rolling(window=self._factor, min_periods=self._factor,
+                                        center=False).median().iloc[
+                        np.arange(self._factor - 1, len(self.i.data), self._factor)]
 
 
 class Resample(Node):
@@ -116,22 +123,28 @@ class Resample(Node):
 
     def update(self):
 
-        self.o = self.i
-        if self.i.data is not None:
-            if not self.i.data.empty:
-                if not self._previous.empty:
-                    self.i.data = pd.concat([self._previous, self.i.data], axis=0)
-                if len(self.i.data) % self._factor == 0:
-                    self._previous = pd.DataFrame()
-                else:
-                    self._previous = self.i.data.iloc[(len(self.i.data) // self._factor) * self._factor:]
-                    self.i.data = self.i.data.iloc[: (len(self.i.data) // self._factor) * self._factor]
+        # copy the meta
+        self.o.meta = self.i.meta
 
-                self.o.data = pd.DataFrame(
-                    data=signal.resample(x=self.i.data.values, num=len(self.i.data) // self._factor,
-                                         window=self.window),
-                    index=self.i.data.index[np.arange(0, len(self.i.data), self._factor)],
-                    columns=self.i.data.columns)
+        # When we have not received data, there is nothing to do
+        if self.i.data is None or self.i.data.empty:
+            return
+
+        # At this point, we are sure that we have some data to process
+        if not self._previous.empty:
+            self.i.data = pd.concat([self._previous, self.i.data], axis=0)
+
+        if len(self.i.data) % self._factor == 0:
+            self._previous = pd.DataFrame()
+        else:
+            self._previous = self.i.data.iloc[(len(self.i.data) // self._factor) * self._factor:]
+            self.i.data = self.i.data.iloc[: (len(self.i.data) // self._factor) * self._factor]
+
+        self.o.data = pd.DataFrame(
+            data=signal.resample(x=self.i.data.values, num=len(self.i.data) // self._factor,
+                                 window=self.window),
+            index=self.i.data.index[np.arange(0, len(self.i.data), self._factor)],
+            columns=self.i.data.columns)
 
 
 class IIRFilter(Node):
@@ -209,20 +222,25 @@ class IIRFilter(Node):
 
     def update(self):
 
-        self.o = self.i
-        if self.i.data is not None:
-            if self._columns is None:
-                self._columns = self.i.data.columns
-            if not self.i.data.empty:
-                for col in self._columns:
-                    if col not in self._sos:
-                        self._sos[col] = self._design_sos()
-                    if col not in self._zi:
-                        zi0 = signal.sosfilt_zi(self._sos[col])
-                        self._zi[col] = (zi0 * self.i.data[col].values[0])
-                    port_o_col, self._zi[col] = signal.sosfilt(self._sos[col], self.i.data[col].values.T,
-                                                               zi=self._zi[col])
-                    self.o.data.loc[:, col] = port_o_col
+        # copy the meta
+        self.o.meta = self.i.meta
+
+        # When we have not received data, there is nothing to do
+        if self.i.data is None or self.i.data.empty:
+            return
+
+        # At this point, we are sure that we have some data to process
+        if self._columns is None:
+            self._columns = self.i.data.columns
+            for col in self._columns:
+                if col not in self._sos:
+                    self._sos[col] = self._design_sos()
+                if col not in self._zi:
+                    zi0 = signal.sosfilt_zi(self._sos[col])
+                    self._zi[col] = (zi0 * self.i.data[col].values[0])
+                port_o_col, self._zi[col] = signal.sosfilt(self._sos[col], self.i.data[col].values.T,
+                                                           zi=self._zi[col])
+                self.o.data.loc[:, col] = port_o_col
 
     def _design_sos(self):
 
@@ -310,21 +328,27 @@ class FIRFilter(Node):
         self._delay = {}  # FIR filter delays, one per stream (average)
 
     def update(self):
-        self.o = self.i
-        if self.i.data is not None:
-            if self._columns is None:
-                self._columns = self.i.data.columns
-            if not self.i.data.empty:
-                for col in self._columns:
-                    if col not in self._coeffs:
-                        self._coeffs[col], self._delay[col] = self._design_filter()
-                    if col not in self._zi:
-                        zi0 = signal.lfilter_zi(self._coeffs[col], 1.0)
-                        self._zi[col] = (zi0 * self.i.data[col].values[0])
-                    port_o_col, self._zi[col] = signal.lfilter(b=self._coeffs[col], a=1.0, x=self.i.data[col].values.T,
-                                                               zi=self._zi[col])
-                    self.o.meta = {"FIRFilter": {"delay": self._delay}}
-                    self.o.data.loc[:, col] = port_o_col
+        # copy the meta
+        self.o.meta = self.i.meta
+
+        # When we have not received data, there is nothing to do
+        if self.i.data is None or self.i.data.empty:
+            return
+
+        # At this point, we are sure that we have some data to process
+        if self._columns is None:
+            self._columns = self.i.data.columns
+
+        for col in self._columns:
+            if col not in self._coeffs:
+                self._coeffs[col], self._delay[col] = self._design_filter()
+            if col not in self._zi:
+                zi0 = signal.lfilter_zi(self._coeffs[col], 1.0)
+                self._zi[col] = (zi0 * self.i.data[col].values[0])
+            port_o_col, self._zi[col] = signal.lfilter(b=self._coeffs[col], a=1.0, x=self.i.data[col].values.T,
+                                                       zi=self._zi[col])
+            self.o.meta = {"FIRFilter": {"delay": self._delay}}
+            self.o.data.loc[:, col] = port_o_col
 
     def _design_filter(self):
         # Calculate an FIR filter kernel for a given sampling rate.
