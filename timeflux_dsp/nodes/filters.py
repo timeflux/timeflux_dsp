@@ -76,7 +76,7 @@ class DropRows(Node):
                     elif self._method == "median":
                         self.o.data = \
                             self.i.data.rolling(window=self._factor, min_periods=self._factor,
-                                                center=False).mean().iloc[
+                                                center=False).median().iloc[
                                 np.arange(self._factor - 1, len(self.i.data), self._factor)]
 
 
@@ -229,7 +229,7 @@ class IIRFilter(Node):
         if self._sos_custom is None:
             # Calculate an IIR filter kernel for a given sampling rate.
             sos, self._freqs = construct_iir_filter(fs=self._fs, freqs=self._inputfreqs, mode=self._mode,
-                                                    order=self._order, design="butter", pass_loss=3.0, stop_atten=50.0)
+                                                    order=self._order, design=self._design , pass_loss=self._pass_loss, stop_atten=self._stop_atten)
             return sos
         else:
             if self._sos_custom.shape[1] == 6:
