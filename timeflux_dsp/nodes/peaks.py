@@ -102,22 +102,29 @@ class RealTimeDetect(Node):
 
     def update(self):
 
+        # copy the meta
         self.o.meta = self.i.meta
-        if self.i.data is not None:
-            self.o_events.data = None
-            for (value, timestamp) in zip(self.i.data.values, self.i.data.index):
-                if self._reset is not None:
-                    if (self._last - timestamp).total_seconds() > self._reset: self._reset_states()
-                self._last = timestamp
-                # Peak detection
-                detected = self._on_sample(value=value, timestamp=timestamp)
-                # Append event
-                if detected:
-                    self.o_events.data = pd.DataFrame(index=[detected[0]],
-                                               data=np.array([[detected[1]],
-                                                              [{'value': detected[2], 'lag': detected[3],
-                                                                'interval': detected[4]}]]).T,
-                                               columns=['label', 'data'])
+
+        # When we have not received data, there is nothing to do
+        if self.i.data is None or self.i.data.empty:
+            return
+
+        # At this point, we are sure that we have some data to process
+        self.o_events.data = None
+
+        for (value, timestamp) in zip(self.i.data.values, self.i.data.index):
+            if self._reset is not None:
+                if (self._last - timestamp).total_seconds() > self._reset: self._reset_states()
+            self._last = timestamp
+            # Peak detection
+            detected = self._on_sample(value=value, timestamp=timestamp)
+            # Append event
+            if detected:
+                self.o_events.data = pd.DataFrame(index=[detected[0]],
+                                           data=np.array([[detected[1]],
+                                                          [{'value': detected[2], 'lag': detected[3],
+                                                            'interval': detected[4]}]]).T,
+                                           columns=['label', 'data'])
 
     def _on_sample(self, value, timestamp):
         """Peak detection"""
@@ -198,48 +205,54 @@ class WindowDetect(Node):
 
     def update(self):
 
+        # copy the meta
         self.o_events.meta = self.i.meta
-        if self.i.data is not None:
-            if not self._warmed_up:
-                if self._last_peak is None: self._last_peak = self.i.data.index[0]
-                if self._last_valley is None: self._last_valley = self.i.data.index[0]
-                self._buffer = pd.concat([self._buffer, self.i.data], axis=0)
-                if (self._buffer.index[-1] - self._buffer.index[0]).total_seconds() > 3 * self._window: self._warmed_up = True
-            else:
-                self.o_events.data = None
-                ## append data to buffer
-                self._buffer = pd.concat([self._buffer, self.i.data], axis=0)
-                ## throw out old samples
-                self._buffer = self._buffer.loc[self._buffer.index[-1] - timedelta(seconds=self._window):]
-                # iterates over each sample
-                # this is actually equivalent to the local max function of scipy
-                if self.i.data.max()[0] == self._buffer.max()[0]:
-                    peak = self.i.data.idxmax()[0]
-                    if (peak - self._last_peak).total_seconds() > self._tol:
-                        self._peak_interval = peak - self._last_peak
 
-                        self.o_events.data = pd.DataFrame(index=[peak],
-                                                   data=np.array([['peak'],
-                                                                  [{'value': self.i.data.max()[0], 'lag': (
-                                                                              self.i.data.index[
-                                                                                  -1] - self._last_peak).total_seconds(),
-                                                                    'interval': self._peak_interval.total_seconds()}]]).T,
-                                                   columns=['label', 'data'])
-                        self._last_peak = peak
+        # When we have not received data, there is nothing to do
+        if self.i.data is None or self.i.data.empty:
+            return
 
-                if self.i.data.min()[0] == self._buffer.min()[0]:
-                    valley = self.i.data.idxmin()[0]
-                    if (valley - self._last_valley).total_seconds() > self._tol:
-                        self._valley_interval = valley - self._last_valley
+        # At this point, we are sure that we have some data to process
+        if not self._warmed_up:
+            if self._last_peak is None: self._last_peak = self.i.data.index[0]
+            if self._last_valley is None: self._last_valley = self.i.data.index[0]
+            self._buffer = pd.concat([self._buffer, self.i.data], axis=0)
+            if (self._buffer.index[-1] - self._buffer.index[0]).total_seconds() > 3 * self._window: self._warmed_up = True
+        else:
+            self.o_events.data = None
+            ## append data to buffer
+            self._buffer = pd.concat([self._buffer, self.i.data], axis=0)
+            ## throw out old samples
+            self._buffer = self._buffer.loc[self._buffer.index[-1] - timedelta(seconds=self._window):]
+            # iterates over each sample
+            # this is actually equivalent to the local max function of scipy
+            if self.i.data.max()[0] == self._buffer.max()[0]:
+                peak = self.i.data.idxmax()[0]
+                if (peak - self._last_peak).total_seconds() > self._tol:
+                    self._peak_interval = peak - self._last_peak
 
-                        self.o_events.data = pd.DataFrame(index=[valley],
-                                                   data=np.array([['valley'],
-                                                                  [{'value': self.i.data.min()[0], 'lag': (
-                                                                              self.i.data.index[
-                                                                                  -1] - self._last_valley).total_seconds(),
-                                                                    'interval': self._valley_interval.total_seconds()}]]).T,
-                                                   columns=['label', 'data'])
-                        self._last_valley = valley
+                    self.o_events.data = pd.DataFrame(index=[peak],
+                                               data=np.array([['peak'],
+                                                              [{'value': self.i.data.max()[0], 'lag': (
+                                                                          self.i.data.index[
+                                                                              -1] - self._last_peak).total_seconds(),
+                                                                'interval': self._peak_interval.total_seconds()}]]).T,
+                                               columns=['label', 'data'])
+                    self._last_peak = peak
+
+            if self.i.data.min()[0] == self._buffer.min()[0]:
+                valley = self.i.data.idxmin()[0]
+                if (valley - self._last_valley).total_seconds() > self._tol:
+                    self._valley_interval = valley - self._last_valley
+
+                    self.o_events.data = pd.DataFrame(index=[valley],
+                                               data=np.array([['valley'],
+                                                              [{'value': self.i.data.min()[0], 'lag': (
+                                                                          self.i.data.index[
+                                                                              -1] - self._last_valley).total_seconds(),
+                                                                'interval': self._valley_interval.total_seconds()}]]).T,
+                                               columns=['label', 'data'])
+                    self._last_valley = valley
 
 
 class Rate(Node):
@@ -270,22 +283,28 @@ class Rate(Node):
 
     def update(self):
 
+        # copy the meta
         self.o.meta = self.i_events.meta
-        if self.i_events.data is not None:
-            self.o.data = None
-            if not self.i_events.data.empty:
 
-                target_index = self.i_events.data[self.i_events.data[
-                                                  self._event_label] == self._event_trigger].index
+        # When we have not received data, there is nothing to do
+        if self.i.data is None or self.i.data.empty:
+            return
 
-                if not target_index.empty:
+        # At this point, we are sure that we have some data to process
 
-                    if self._last is None: self._last = target_index[0]
+        self.o.data = None
 
-                    target_index = [self._last] + list(target_index)
+        target_index = self.i_events.data[self.i_events.data[
+                                          self._event_label] == self._event_trigger].index
 
-                    rate_values = [(np.timedelta64(1, 's') / a) if (a != 0 * np.timedelta64(1, 's')) else None for a in
-                     list(np.diff(target_index))]
+        if not target_index.empty:
 
-                    self.o.data = pd.DataFrame(index = target_index[1:], data = rate_values, columns = ["rate"])
-                    self._last = target_index[-1]
+            if self._last is None: self._last = target_index[0]
+
+            target_index = [self._last] + list(target_index)
+
+            rate_values = [(np.timedelta64(1, 's') / a) if (a != 0 * np.timedelta64(1, 's')) else None for a in
+             list(np.diff(target_index))]
+
+            self.o.data = pd.DataFrame(index = target_index[1:], data = rate_values, columns = ["rate"])
+            self._last = target_index[-1]
