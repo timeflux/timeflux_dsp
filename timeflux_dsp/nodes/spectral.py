@@ -95,19 +95,24 @@ class FFT(Node):
 
     def update(self):
 
+        # copy the meta
         self.o = self.i
-        if self.o.data is not None:
-            if not self.o.data.empty:
-                self._check_nfft()
-                self.o.data = self.i.data
-                if self._sides == 'twosided':
-                    func = fftpack.fft
-                else:
-                    self.o.data = self.o.data.apply(lambda x: x.real)
-                    func = np.fft.rfft
-                values =  func(self.o.data.values.T, n=self._nfft).T
-                ## deprecated MultiIndex --> XArray
-                # self.o.data = pd.DataFrame(index = pd.MultiIndex.from_product([[self.o.data.index[-1]], self._freqs], names = ["times", "freqs"]), data = values, columns = self.o.data.columns)
-                self.o.data = xr.DataArray(np.stack([values], 0),
-                                    coords=[[self.o.data.index[-1]], self._freqs, self.o.data.columns],
-                                    dims=['times', 'freqs', 'space'])
+
+        # When we have not received data, there is nothing to do
+        if self.i.data is None or self.i.data.empty:
+            return
+
+        # At this point, we are sure that we have some data to process
+        self._check_nfft()
+        self.o.data = self.i.data
+        if self._sides == 'twosided':
+            func = fftpack.fft
+        else:
+            self.o.data = self.o.data.apply(lambda x: x.real)
+            func = np.fft.rfft
+        values =  func(self.o.data.values.T, n=self._nfft).T
+        ## deprecated MultiIndex --> XArray
+        # self.o.data = pd.DataFrame(index = pd.MultiIndex.from_product([[self.o.data.index[-1]], self._freqs], names = ["times", "freqs"]), data = values, columns = self.o.data.columns)
+        self.o.data = xr.DataArray(np.stack([values], 0),
+                            coords=[[self.o.data.index[-1]], self._freqs, self.o.data.columns],
+                            dims=['times', 'freqs', 'space'])

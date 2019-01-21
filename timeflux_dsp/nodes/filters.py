@@ -223,7 +223,7 @@ class IIRFilter(Node):
     def update(self):
 
         # copy the meta
-        self.o.meta = self.i.meta
+        self.o = self.i
 
         # When we have not received data, there is nothing to do
         if self.i.data is None or self.i.data.empty:
@@ -329,7 +329,7 @@ class FIRFilter(Node):
 
     def update(self):
         # copy the meta
-        self.o.meta = self.i.meta
+        self.o = self.i
 
         # When we have not received data, there is nothing to do
         if self.i.data is None or self.i.data.empty:
