@@ -78,9 +78,9 @@ class FFT(Node):
         # Check validity of nfft at first chunk
         if self._nfft is None:
             logging.info("nfft := length of the chunk ")
-            self._nfft = len(self.i.data)
+            self._nfft = self.i.data.shape[0]
             self._set_freqs()
-        elif self._nfft < len(self.i.data):
+        elif self._nfft < self.i.data.shape[0]:
             raise ValueError('nfft must be greater than or equal to length of chunk.')
         else:
             self._nfft = int(self._nfft)

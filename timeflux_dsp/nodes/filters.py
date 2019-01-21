@@ -65,11 +65,9 @@ class DropRows(Node):
         # At this point, we are sure that we have some data to process
         self.i.data = pd.concat([self._previous, self.i.data], axis=0)
 
-        if self.i.data.shape[0] % self._factor == 0:
-            self._previous = pd.DataFrame()
-        else:
-            self._previous = self.i.data.iloc[(self.i.data.shape[0] // self._factor) * self._factor:]
-            self.i.data = self.i.data.iloc[: (self.i.data.shape[0] // self._factor) * self._factor]
+        n = self.i.data.shape[0]
+        remaining = n % self.factor
+        self.i.data, self._previous = np.split(self.i.data, [n - remaining])
 
         if self._method is None:
             # take every kth sample with k=factor starting from the k-1 position
@@ -80,8 +78,7 @@ class DropRows(Node):
                 self.o.data = self.i.data.rolling(window=self._factor, min_periods=self._factor,
                                         center=False).mean().iloc[self._factor - 1::self._factor]
             elif self._method == "median":
-                self.o.data = \
-                    self.i.data.rolling(window=self._factor, min_periods=self._factor,
+                self.o.data = self.i.data.rolling(window=self._factor, min_periods=self._factor,
                                         center=False).median().iloc[self._factor - 1::self._factor]
 
 
@@ -129,19 +126,21 @@ class Resample(Node):
             return
 
         # At this point, we are sure that we have some data to process
+        n = self.i.data.shape[0]
+
         if not self._previous.empty:
             self.i.data = pd.concat([self._previous, self.i.data], axis=0)
 
         if self.i.data.shape[0] % self._factor == 0:
             self._previous = pd.DataFrame()
         else:
-            self._previous = self.i.data.iloc[(self.i.data.shape[0] // self._factor) * self._factor:]
-            self.i.data = self.i.data.iloc[: (self.i.data.shape[0] // self._factor) * self._factor]
+            self._previous = self.i.data.iloc[(n // self._factor) * self._factor:]
+            self.i.data = self.i.data.iloc[: (n // self._factor) * self._factor]
 
         self.o.data = pd.DataFrame(
-            data=signal.resample(x=self.i.data.values, num=self.i.data.shape[0] // self._factor,
+            data=signal.resample(x=self.i.data.values, num=n // self._factor,
                                  window=self.window),
-            index=self.i.data.index[np.arange(0, self.i.data.shape[0], self._factor)],
+            index=self.i.data.index[np.arange(0, n, self._factor)],
             columns=self.i.data.columns)
 
 
