@@ -3,6 +3,7 @@
 import xarray as xr
 import logging
 from scipy.signal.spectral import fftpack
+from scipy.signal import welch
 
 from timeflux.core.node import Node
 from timeflux.helpers.clock import *
@@ -115,4 +116,106 @@ class FFT(Node):
         # self.o.data = pd.DataFrame(index = pd.MultiIndex.from_product([[self.o.data.index[-1]], self._freqs], names = ["times", "freqs"]), data = values, columns = self.o.data.columns)
         self.o.data = xr.DataArray(np.stack([values], 0),
                             coords=[[self.o.data.index[-1]], self._freqs, self.o.data.columns],
-                            dims=['times', 'freqs', 'space'])
+                            dims=['time', 'freq', 'space'])
+
+
+class Welch(Node):
+    """
+       Estimate power spectral density using Welch’s method.
+
+       Attributes:
+           i (Port): default input, expects DataFrame.
+           o (Port): default output, provides DataArray with dimensions (time, freq, space).
+
+       Example:
+
+        In this exemple, we simulate data with noisy sinus on three sensors (columns `a`, `b`, `c`):
+
+         * ``fs`` = `100.0`
+         * ``nfft`` = `24`
+
+        node.i.data::
+                                        a         b         c
+            1970-01-01 00:00:00.000 -0.233920 -0.343296  0.157988
+            1970-01-01 00:00:00.010  0.460353  0.777296  0.957201
+            1970-01-01 00:00:00.020  0.768459  1.234923  1.942190
+            1970-01-01 00:00:00.030  1.255393  1.782445  2.326175
+                 ...                    ...      ...      ...
+            1970-01-01 00:00:01.190  1.185759  2.603828  3.315607
+
+        node.o.data::
+
+            <xarray.DataArray (time: 1, freq: 13, space: 3)>
+            array([[[2.823924e-02, 1.087382e-01, 1.153163e-01],
+                [1.703466e-01, 6.048703e-01, 6.310628e-01],
+                    ...            ...          ...
+                [9.989429e-04, 8.519226e-04, 7.769918e-04],
+                [1.239551e-03, 7.412518e-04, 9.863335e-04],
+                [5.382880e-04, 4.999334e-04, 4.702757e-04]]])
+            Coordinates:
+                * time     (time) datetime64[ns] 1970-01-01T00:00:01.190000
+                * freq     (freq) float64 0.0 4.167 8.333 12.5 16.67 ... 37.5 41.67 45.83 50.0
+                * space    (space) object 'a' 'b' 'c'
+
+
+        Notes:
+
+            This node should be used after a Window with the appropriate length, with regard to the parameters
+            `noverlap`, `nperseg` and `nfft`.
+            It should be noted that a pipeline such as {LargeWindow-Welch} is in fact equivalent to a pipeline
+            {SmallWindow-FFT-LargeWindow-Average} with SmallWindow 's parameters `length` and `step` respectively
+            equivalent to `nperseg` and `step` and with FFT node with same kwargs.
+
+
+    """
+    def __init__(self, fs=1.0, kwargs={}):
+        """
+            Args:
+                fs (float): Nominal sampling rate of the input data.
+                kwargs (dict):  Arguments to pass to scipy.signal.welch function.
+                                  You can specify: window, nperseg, noverlap, nfft, detrend, return_onesided and scaling.
+        """
+
+        self._fs = fs
+        self._kwargs = kwargs
+        self._set_default()
+
+    def _set_default(self):
+        # We set the default params if they are not specifies in kwargs in order to check that they are valid, in respect of the length and sampling of the input data.
+        if "nperseg" not in self._kwargs.keys():
+            self._kwargs["nperseg"] = 256
+            logging.info("nperseg := 256")
+        if "nfft" not in self._kwargs.keys():
+            self._kwargs["nfft"] = self._kwargs["nperseg"]
+            logging.info("nfft := nperseg := {nperseg}".format(nperseg = self._kwargs["nperseg"]))
+        if "noverlap" not in self._kwargs.keys():
+            self._kwargs["noverlap"] = self._kwargs["nperseg"]//2
+            logging.info("noverlap := nperseg/2 := {noverlap}".format(noverlap=self._kwargs["noverlap"]))
+
+    def _check_nfft(self):
+        # Check validity of nfft at first chun
+        if not all(i <= len(self.i.data) for i in [self._kwargs[k] for k in ["nfft", "nperseg", "noverlap"]]):
+            raise ValueError('nfft, noverlap and nperseg must be greater than or equal to length of chunk.')
+        else:
+            self._kwargs["nfft"] = int(self._kwargs["nfft"])
+            self._kwargs["nperseg"] = int(self._kwargs["nperseg"])
+            self._kwargs["noverlap"] = int(self._kwargs["noverlap"])
+
+    def update(self):
+        # copy the meta
+        self.o = self.i
+
+        # When we have not received data, there is nothing to do
+        if self.i.data is None or self.i.data.empty:
+            return
+
+        # At this point, we are sure that we have some data to process
+
+        # apply welch on the data:
+        self._check_nfft()
+        f, Pxx = welch(x = self.i.data, fs = self._fs, **self._kwargs, axis=0)
+        # f is the frequency axis and Pxx the average power of shape (Nfreqs x Nchanels)
+        # we reshape Pxx to fit the ("time" x "freq" x "space") dimensions
+        self.o.data = xr.DataArray(np.stack([Pxx], 0),
+                                   coords=[[self.i.data.index[-1]], f, self.i.data.columns],
+                                   dims=['time', 'freq', 'space'])
