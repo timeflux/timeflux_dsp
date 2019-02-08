@@ -19,10 +19,10 @@ data = helpers.DummyData( rate=fs, jitter=.05,)
 all_data = data.next(50)
 
 
-def test_fft():
+def test_welch():
     data.reset()
 
-    node = FFT(nfft=5, fs=fs, return_onesided=False)
+    node = FFT(fs=fs, return_onesided=False)
     node.i.data = data.next(5)
 
     node.update()
