@@ -2,27 +2,21 @@
 
 import pytest
 import pandas as pd
-import numpy as np
 from timeflux.core.registry import Registry
 import helpers
 import xarray as xr
-from copy import copy
 
 
 Registry.cycle_start = 0
 Registry.rate = 1
 
-from timeflux_dsp.nodes.spectral import FFT
-
 fs=10
 
-data = helpers.DummyData( rate=fs, jitter=.05,)
-all_data = data.next(50)
 
 
-import numpy as np
+
 from pylab import *
-import matplotlib.pyplot as plt
+
 from timeflux.helpers.clock import float_index_to_time_index
 #------------------------------------------------------------------
 # Create a signal for demonstration of Welch Periodogram .
