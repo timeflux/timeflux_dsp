@@ -219,3 +219,50 @@ class Welch(Node):
         self.o.data = xr.DataArray(np.stack([Pxx], 0),
                                    coords=[[self.i.data.index[-1]], f, self.i.data.columns],
                                    dims=['time', 'freq', 'space'])
+
+
+class AverageBands(Node):
+    """Averages the XArray values over freq dimension according to the frequencies bands given in arguments.
+
+    This node selects a subset of values over the chosen dimensions, averages them along this axis and convert the result into a flat dataframe.
+    This node will output as many ports bands as given bands, with their respective name as suffix.
+
+        Attributes:
+            i (Port): default output, provides DataArray with 3 dimensions (time, freq, space).
+            o (Port): Default output, provides DataFrame.
+            o_* (Port): Dynamic outputs, provide DataFrame.
+
+    """
+    def __init__(self, bands={'delta': [1, 4], 'theta': [4, 8], 'alpha': [8, 12], 'beta': [12, 30]}, relative=False) :
+
+
+        """
+        Args:
+           bands (dict): Define the band to extract given its name and its range.
+                         An output port will be created with the given names as suffix.
+
+        """
+        self._relative = relative
+        self._bands = []
+        for band in bands.items():
+            self._bands.append(dict(port=getattr(self, 'o_' + band[0]),
+                                    slice=slice(band[1][0], band[1][1]),
+                                    meta= {"AverageBands": {"range":  band[1], "relative":relative}}))
+
+    def update(self):
+
+        # When we have not received data, there is nothing to do
+        if self.i.data is None :
+            return
+
+        # At this point, we are sure that we have some data to process
+        for band in self._bands:
+            # 1. select the Xarray on freq axis in the range, 2. average along freq axis
+            band_power = self.i.data.loc[{"freq": band["slice"]}].mean("freq").values
+            if self._relative:
+                tot_power = self.i.data.mean("freq").values
+                band_power/=tot_power
+
+            band["port"].data = pd.DataFrame(columns = self.i.data.space.values, index = self.i.data.time.values, data=band_power)
+            band["port"].meta = {**(self.i.meta or {}), **band["meta"] }
+
