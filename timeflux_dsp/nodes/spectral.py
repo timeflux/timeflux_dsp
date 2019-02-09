@@ -264,5 +264,5 @@ class AverageBands(Node):
                 band_power/=tot_power
 
             band["port"].data = pd.DataFrame(columns = self.i.data.space.values, index = self.i.data.time.values, data=band_power)
-            band["port"].meta = {**(self.i.meta or {}), **band["meta"] }
+            band["port"].meta = {**(self.i.meta), **band["meta"] }
 
