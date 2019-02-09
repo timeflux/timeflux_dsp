@@ -1,11 +1,11 @@
-from timeflux_dsp.nodes.spectral import AverageBands
+from timeflux_dsp.nodes.spectral import Bands
 import numpy as np
 import pandas as pd
 import xarray as xr
 
 
 
-def test_averagebands():
+def test_bands():
     # here, we create an xarray with thre axis: (time, freq, space)
     # freq is (freq) [1 3 5 7 9 11 13 15 17 19 21 23 25 27 29 31 33 35 37 39]
     # time is (time) datetime64[ns] 2018-01-01 ... 2018-01-01T00:00:00.400000
@@ -19,7 +19,7 @@ def test_averagebands():
 
     Nt = 5
     Nf = 20
-    node = AverageBands({'alpha': [8, 12], 'beta': [12, 30]})
+    node = Bands({'alpha': [8, 12], 'beta': [12, 30]})
     freq = np.arange(1, Nf * 2, 2)
     space = ["simple", "double"]
     time = pd.date_range(
@@ -51,7 +51,7 @@ def test_averagebands():
     pd.testing.assert_frame_equal(alpha_expected, node.o_alpha.data)
     pd.testing.assert_frame_equal(beta_expected, node.o_beta.data)
 
-    assert node.o_alpha.meta == {'AverageBands': {'range': [8, 12], 'relative': False}}
-    assert node.o_beta.meta == {'AverageBands': {'range': [12, 30], 'relative': False}}
+    assert node.o_alpha.meta == {'Bands': {'range': [8, 12], 'relative': False}}
+    assert node.o_beta.meta == {'Bands': {'range': [12, 30], 'relative': False}}
 
 
