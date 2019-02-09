@@ -221,7 +221,7 @@ class Welch(Node):
                                    dims=['time', 'freq', 'space'])
 
 
-class AverageBands(Node):
+class Bands(Node):
     """Averages the XArray values over freq dimension according to the frequencies bands given in arguments.
 
     This node selects a subset of values over the chosen dimensions, averages them along this axis and convert the result into a flat dataframe.
