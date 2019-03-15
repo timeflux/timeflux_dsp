@@ -66,7 +66,7 @@ class DropRows(Node):
         self.i.data = pd.concat([self._previous, self.i.data], axis=0)
 
         n = self.i.data.shape[0]
-        remaining = n % self.factor
+        remaining = n % self._factor
         self.i.data, self._previous = np.split(self.i.data, [n - remaining])
 
         if self._method is None:
