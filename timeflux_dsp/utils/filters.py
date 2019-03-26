@@ -344,7 +344,7 @@ def construct_fir_filter(fs, freqs, gains, order, phase, window, design):
 
 
 
-def construct_iir_filter(fs, freqs, mode, order=None, design="butter", pass_loss=3.0, stop_atten=50.0):
+def construct_iir_filter(fs, freqs, mode, order=None, design="butter", pass_loss=3.0, stop_atten=50.0, output="sos"):
 
     """Calculate an IIR filter kernel for a given sampling rate.
 
@@ -378,16 +378,24 @@ def construct_iir_filter(fs, freqs, mode, order=None, design="butter", pass_loss
     if order:
         # use order-based design
         wn = _hz_to_nyq(freqs, nyq)
-        sos = signal.iirfilter(N=order, Wn=wn,
-                                rp=pass_loss,
-                                rs=stop_atten,
-                                btype=mode, ftype=design,
-                                output='sos')
-        return sos, freqs
+        out = signal.iirfilter(N=order, Wn=wn,
+                               rp=pass_loss,
+                               rs=stop_atten,
+                               btype=mode, ftype=design,
+                               output=output)
+        # sos = signal.iirfilter(N=order, Wn=wn,
+        #                         rp=pass_loss,
+        #                         rs=stop_atten,
+        #                         btype=mode, ftype=design,
+        #                         output='sos')
+        return out, freqs
     else:
         freqs, gains, wp, ws = design_edges(freqs, nyq, mode)
-        sos = signal.iirdesign(wp=wp, ws=ws, gstop=stop_atten,
+        out = signal.iirdesign(wp=wp, ws=ws, gstop=stop_atten,
                                gpass=pass_loss,
-                               ftype=design, output='sos')
-        return sos, freqs
+                               ftype=design, output=output)
+        # sos = signal.iirdesign(wp=wp, ws=ws, gstop=stop_atten,
+        #                        gpass=pass_loss,
+        #                        ftype=design, output='sos')
+        return out, freqs
 
