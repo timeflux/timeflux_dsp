@@ -5,7 +5,7 @@ from scipy import signal
 from timeflux.helpers.clock import *
 from timeflux.core.io import Port
 
-from ..utils.filters import construct_fir_filter, _get_com_factor, construct_iir_filter, design_edges
+from timeflux_dsp.utils.filters import construct_fir_filter, construct_iir_filter, design_edges
 
 
 class DropRows(Node):
@@ -66,7 +66,7 @@ class DropRows(Node):
         self.i.data = pd.concat([self._previous, self.i.data], axis=0)
 
         n = self.i.data.shape[0]
-        remaining = n % self.factor
+        remaining = n % self._factor
         self.i.data, self._previous = np.split(self.i.data, [n - remaining])
 
         if self._method is None:
@@ -229,22 +229,23 @@ class IIRFilter(Node):
         # At this point, we are sure that we have some data to process
         if self._columns is None:
             self._columns = self.i.data.columns
-            for col in self._columns:
-                if col not in self._sos:
-                    self._sos[col] = self._design_sos()
-                if col not in self._zi:
-                    zi0 = signal.sosfilt_zi(self._sos[col])
-                    self._zi[col] = (zi0 * self.i.data[col].values[0])
-                port_o_col, self._zi[col] = signal.sosfilt(self._sos[col], self.i.data[col].values.T,
-                                                           zi=self._zi[col])
-                self.o.data.loc[:, col] = port_o_col
+
+        for col in self._columns:
+            if col not in self._sos:
+                self._sos[col] = self._design_sos()
+            if col not in self._zi:
+                zi0 = signal.sosfilt_zi(self._sos[col])
+                self._zi[col] = (zi0 * self.i.data[col].values[0])
+            port_o_col, self._zi[col] = signal.sosfilt(self._sos[col], self.i.data[col].values.T,
+                                                       zi=self._zi[col])
+            self.o.data.loc[:, col] = port_o_col
 
     def _design_sos(self):
 
         if self._sos_custom is None:
             # Calculate an IIR filter kernel for a given sampling rate.
             sos, self._freqs = construct_iir_filter(fs=self._fs, freqs=self._inputfreqs, mode=self._mode,
-                                                    order=self._order, design=self._design , pass_loss=self._pass_loss, stop_atten=self._stop_atten)
+                                                    order=self._order, design=self._design , pass_loss=self._pass_loss, stop_atten=self._stop_atten, output="sos")
             return sos
         else:
             if self._sos_custom.shape[1] == 6:
