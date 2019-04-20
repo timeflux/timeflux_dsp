@@ -120,27 +120,26 @@ class FFT(Node):
 
 
 class Welch(Node):
-    """
-       Estimate power spectral density using Welch’s method.
+    """Estimate power spectral density using Welch’s method.
 
-       Attributes:
+        Attributes:
            i (Port): default input, expects DataFrame.
            o (Port): default output, provides DataArray with dimensions (time, freq, space).
 
-       Example:
+        Example:
 
         In this exemple, we simulate data with noisy sinus on three sensors (columns `a`, `b`, `c`):
 
-         * ``fs`` = `100.0`
-         * ``nfft`` = `24`
+            * ``fs`` = `100.0`
+            * ``nfft`` = `24`
 
         node.i.data::
-                                        a         b         c
+            \s                       a         b         c
             1970-01-01 00:00:00.000 -0.233920 -0.343296  0.157988
             1970-01-01 00:00:00.010  0.460353  0.777296  0.957201
             1970-01-01 00:00:00.020  0.768459  1.234923  1.942190
             1970-01-01 00:00:00.030  1.255393  1.782445  2.326175
-                 ...                    ...      ...      ...
+            ...                      ...       ...       ...
             1970-01-01 00:00:01.190  1.185759  2.603828  3.315607
 
         node.o.data::
@@ -148,7 +147,7 @@ class Welch(Node):
             <xarray.DataArray (time: 1, freq: 13, space: 3)>
             array([[[2.823924e-02, 1.087382e-01, 1.153163e-01],
                 [1.703466e-01, 6.048703e-01, 6.310628e-01],
-                    ...            ...          ...
+                ...            ...           ...
                 [9.989429e-04, 8.519226e-04, 7.769918e-04],
                 [1.239551e-03, 7.412518e-04, 9.863335e-04],
                 [5.382880e-04, 4.999334e-04, 4.702757e-04]]])
@@ -156,7 +155,6 @@ class Welch(Node):
                 * time     (time) datetime64[ns] 1970-01-01T00:00:01.190000
                 * freq     (freq) float64 0.0 4.167 8.333 12.5 16.67 ... 37.5 41.67 45.83 50.0
                 * space    (space) object 'a' 'b' 'c'
-
 
         Notes:
 
@@ -173,7 +171,7 @@ class Welch(Node):
             Args:
                 fs (float): Nominal sampling rate of the input data.
                 kwargs (dict):  Arguments to pass to scipy.signal.welch function.
-                                  You can specify: window, nperseg, noverlap, nfft, detrend, return_onesided and scaling.
+                                You can specify: window, nperseg, noverlap, nfft, detrend, return_onesided and scaling.
         """
 
         self._fs = fs
