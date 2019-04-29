@@ -110,7 +110,7 @@ class RealTimeDetect(Node):
             return
 
         # At this point, we are sure that we have some data to process
-        self.o_events.data = None
+        self.o_events.data = pd.DataFrame()
 
         for (value, timestamp) in zip(self.i.data.values, self.i.data.index):
             if self._reset is not None:
@@ -120,11 +120,11 @@ class RealTimeDetect(Node):
             detected = self._on_sample(value=value, timestamp=timestamp)
             # Append event
             if detected:
-                self.o_events.data = pd.DataFrame(index=[detected[0]],
+                self.o_events.data = self.o_events.data.append(pd.DataFrame(index=[detected[0]],
                                            data=np.array([[detected[1]],
                                                           [{'value': detected[2], 'lag': detected[3],
                                                             'interval': detected[4]}]]).T,
-                                           columns=['label', 'data'])
+                                           columns=['label', 'data']))
 
     def _on_sample(self, value, timestamp):
         """Peak detection"""
