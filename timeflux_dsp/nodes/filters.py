@@ -10,6 +10,8 @@ from timeflux.helpers.clock import *
 
 from timeflux_dsp.utils.filters import construct_fir_filter, construct_iir_filter, design_edges
 from timeflux.nodes.window import Window
+import sklearn.preprocessing as sklearn_preprocessing
+
 
 class DropRows(Node):
     """Decimate signal by an integer factor.
@@ -392,7 +394,6 @@ class Scaler(Node):
 
 
 
-import sklearn.preprocessing as sklearn_preprocessing
 class AdaptiveScaler(Window):
     """Scales the data adaptively.
     This nodes transforms the data using a sklearn scaler object that is continously fitted on a rolling window.
