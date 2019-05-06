@@ -1,7 +1,6 @@
 """This module contains nodes for spectral analysis with Timeflux."""
 
 import xarray as xr
-import logging
 from scipy.signal.spectral import fftpack
 from scipy.signal import welch
 
@@ -78,7 +77,7 @@ class FFT(Node):
 
         # Check validity of nfft at first chunk
         if self._nfft is None:
-            logging.info("nfft := length of the chunk ")
+            self.logger.debug("nfft := length of the chunk ")
             self._nfft = self.i.data.shape[0]
             self._set_freqs()
         elif self._nfft < self.i.data.shape[0]:
@@ -182,13 +181,13 @@ class Welch(Node):
         # We set the default params if they are not specifies in kwargs in order to check that they are valid, in respect of the length and sampling of the input data.
         if "nperseg" not in self._kwargs.keys():
             self._kwargs["nperseg"] = 256
-            logging.info("nperseg := 256")
+            self.logger.debug("nperseg := 256")
         if "nfft" not in self._kwargs.keys():
             self._kwargs["nfft"] = self._kwargs["nperseg"]
-            logging.info("nfft := nperseg := {nperseg}".format(nperseg = self._kwargs["nperseg"]))
+            self.logger.debug("nfft := nperseg := {nperseg}".format(nperseg = self._kwargs["nperseg"]))
         if "noverlap" not in self._kwargs.keys():
             self._kwargs["noverlap"] = self._kwargs["nperseg"]//2
-            logging.info("noverlap := nperseg/2 := {noverlap}".format(noverlap=self._kwargs["noverlap"]))
+            self.logger.debug("noverlap := nperseg/2 := {noverlap}".format(noverlap=self._kwargs["noverlap"]))
 
     def _check_nfft(self):
         # Check validity of nfft at first chun

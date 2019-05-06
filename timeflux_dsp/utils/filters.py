@@ -2,6 +2,7 @@ import numpy as np
 from scipy import signal
 import logging
 
+LOGGER = logging.getLogger('timeflux.' + __name__)
 
 def _get_com_factor(com, span, halflife, alpha):
     valid_count = sum(1 for _ in filter(None.__ne__, [com, span, halflife, alpha]))
@@ -178,7 +179,7 @@ def design_edges(freqs, nyq, mode):
             l_freq = freqs[0]
             l_trans_bandwidth = min(max(l_freq * 0.25, 2), l_freq)
             freqs = [l_freq - l_trans_bandwidth / 2, l_freq + l_trans_bandwidth / 2]
-            logging.info("Filter Design: assuming {tb} Hz transition band.".format(
+            LOGGER.info("Filter Design: assuming {tb} Hz transition band.".format(
                 tb=freqs[1] - freqs[0]))
         wp, ws = freqs[1], freqs[0]
 
@@ -188,7 +189,7 @@ def design_edges(freqs, nyq, mode):
             h_freq = freqs[0]
             h_trans_bandwidth = min(max(h_freq * 0.25, 2.), nyq - h_freq)
             freqs = [h_freq-h_trans_bandwidth/2, h_freq + h_trans_bandwidth/2]
-            logging.info(
+            LOGGER.info(
                 "IIRFilter: assuming {tb} Hz transition band.".format(tb=freqs[1] - freqs[0]))
         wp, ws = _hz_to_nyq(freqs, nyq)
 
@@ -199,7 +200,7 @@ def design_edges(freqs, nyq, mode):
             minfreq = lofreq - 1 if lofreq > 1 else lofreq / 2
             maxfreq = (hifreq + 1 if hifreq < nyq - 1 else (hifreq + nyq) / 2)
             freqs = [minfreq, lofreq, hifreq, maxfreq]
-            logging.info("Filter Design: assuming {tb1} and {tb2} Hz transition band.".format(
+            LOGGER.info("Filter Design: assuming {tb1} and {tb2} Hz transition band.".format(
                 tb1=freqs[2] - freqs[1],
                 tb2=freqs[3] - freqs[0]))
         wp, ws = _hz_to_nyq([freqs[1], freqs[2]], nyq), _hz_to_nyq([freqs[0], freqs[3]], nyq)
@@ -212,7 +213,7 @@ def design_edges(freqs, nyq, mode):
 
             freqs = [l_freq - l_trans_bandwidth / 2, l_freq + l_trans_bandwidth / 2, h_freq-h_trans_bandwidth/2, h_freq + h_trans_bandwidth/2]
 
-            logging.info("Filter Design: assuming {tb1} and {tb2} Hz transition band.".format(
+            LOGGER.info("Filter Design: assuming {tb1} and {tb2} Hz transition band.".format(
                 tb1=freqs[3] - freqs[0],
                 tb2=freqs[1] - freqs[2]))
         wp, ws = _hz_to_nyq([freqs[0], freqs[3]], nyq), _hz_to_nyq([freqs[1], freqs[2]], nyq)
@@ -320,7 +321,7 @@ def construct_fir_filter(fs, freqs, gains, order, phase, window, design):
     N = int(order)
     if  N % 2 == 0:
         if phase == 'zero':
-            logging.info('filter_length must be odd if phase="zero", '
+            LOGGER.info('filter_length must be odd if phase="zero", '
                                'got %s' % N )
             N+=1
         elif phase == 'zero-double' and gains[-1] == 1:
@@ -337,7 +338,7 @@ def construct_fir_filter(fs, freqs, gains, order, phase, window, design):
         att_db += 6
     if att_db < min_att_db:
         att_freq *= fs / 2.
-        logging.info('Attenuation at stop frequency %0.1fHz is only %0.1fdB. '
+        LOGGER.info('Attenuation at stop frequency %0.1fHz is only %0.1fdB. '
              'Increase filter_length for higher attenuation.'
              % (att_freq, att_db))
     return h
