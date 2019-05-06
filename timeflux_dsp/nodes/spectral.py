@@ -245,7 +245,7 @@ class Bands(Node):
         for band in bands.items():
             self._bands.append(dict(port=getattr(self, 'o_' + band[0]),
                                     slice=slice(band[1][0], band[1][1]),
-                                    meta= {"AverageBands": {"range":  band[1], "relative":relative}}))
+                                    meta= {"AverageBands": {"range":  band[1], "relative": relative}}))
 
     def update(self):
 
@@ -256,11 +256,12 @@ class Bands(Node):
         # At this point, we are sure that we have some data to process
         for band in self._bands:
             # 1. select the Xarray on freq axis in the range, 2. average along freq axis
-            band_power = self.i.data.loc[{"freq": band["slice"]}].mean("freq").values
+            band_power = self.i.data.loc[{"freq": band["slice"]}].sum("freq").values # todo: sum
             if self._relative:
-                tot_power = self.i.data.mean("freq").values
+                tot_power = self.i.data.sum("freq").values
+                tot_power[tot_power==0.0] = 1
                 band_power/=tot_power
 
             band["port"].data = pd.DataFrame(columns = self.i.data.space.values, index = self.i.data.time.values, data=band_power)
-            band["port"].meta = {**(self.i.meta), **band["meta"] }
+            band["port"].meta = {**(self.i.meta or {}), **band["meta"] }
 
