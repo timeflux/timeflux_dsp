@@ -19,7 +19,7 @@ class RealTimeDetect(Node):
 
     Attributes:
         i (Port): Default input, expects DataFrame.
-        o_events (Port): Events output, provides DataFrame.
+        o (Port): Events output, provides DataFrame.
 
     Example:
        .. literalinclude:: /../../timeflux_dsp/test/graphs/droprows.yaml
@@ -36,7 +36,7 @@ class RealTimeDetect(Node):
         .. image:: /../../timeflux_dsp/doc/static/image/realtimepeaks_io.svg
            :align: center
 
-        self.o_events.data::
+        self.o.data::
 
                                             label                                               data
             2018-11-19 11:06:39.620900000    peak  {'value': [1.0054607391357422], 'lag': 0.03125, 'interval': 0.654236268}
@@ -95,7 +95,6 @@ class RealTimeDetect(Node):
         self._reset_states()
         self._last = pd.to_datetime(now())  # Last timestamp
         self._reset = reset
-        self.o_events = Port()
 
     def _reset_states(self):
         """Reset peak detection internal state."""
@@ -111,14 +110,14 @@ class RealTimeDetect(Node):
     def update(self):
 
         # copy the meta
-        self.o = self.i
+        self.o.meta = self.i.meta
 
         # When we have not received data, there is nothing to do
         if self.i.data is None or self.i.data.empty:
             return
 
         # At this point, we are sure that we have some data to process
-        self.o_events.data = pd.DataFrame()
+        self.o.data = pd.DataFrame()
 
         for (value, timestamp) in zip(self.i.data.values, self.i.data.index):
             if self._reset is not None:
@@ -128,7 +127,7 @@ class RealTimeDetect(Node):
             detected = self._on_sample(value=value, timestamp=timestamp)
             # Append event
             if detected:
-                self.o_events.data = self.o_events.data.append(pd.DataFrame(index=[detected[0]],
+                self.o.data = self.o.data.append(pd.DataFrame(index=[detected[0]],
                                                                             data=np.array([[detected[1]],
                                                                                            [{'value': detected[2],
                                                                                              'lag': detected[3],
@@ -185,7 +184,7 @@ class WindowDetect(Node):
 
     Attributes:
         i (Port): Default input, expects DataFrame.
-        o_events (Port): Events output, provides DataFrame.
+        o (Port): Events output, provides DataFrame.
     """
 
     def __init__(self, window=0.5, tol=0.1):
@@ -199,8 +198,6 @@ class WindowDetect(Node):
         self._window = window  # Window of analysis
         self._tol = tol  # Tolerence for peak matching, in seconds.
         # This can be seen as the minimum time difference between two peaks
-
-        self.o_events = Port()
 
         self._reset_states()
 
@@ -220,7 +217,7 @@ class WindowDetect(Node):
     def update(self):
 
         # copy the meta
-        self.o_events.meta = self.i.meta
+        self.o.meta = self.i.meta
 
         # When we have not received data, there is nothing to do
         if self.i.data is None or self.i.data.empty:
@@ -234,7 +231,7 @@ class WindowDetect(Node):
             if (self._buffer.index[-1] - self._buffer.index[0]).total_seconds() > 3 * self._window:
                 self._warmed_up = True
         else:
-            self.o_events.data = None
+            self.o.data = None
             # append data to buffer
             self._buffer = pd.concat([self._buffer, self.i.data], axis=0)
             # throw out old samples
@@ -246,11 +243,11 @@ class WindowDetect(Node):
                 if (peak - self._last_peak).total_seconds() > self._tol:
                     self._peak_interval = peak - self._last_peak
 
-                    self.o_events.data = pd.DataFrame(index=[peak],
+                    self.o.data = pd.DataFrame(index=[peak],
                                                       data=np.array([['peak'],
                                                                      [{'value': self.i.data.max()[0], 'lag': (
-                                                                             self.i.data.index[
-                                                                                 -1] - self._last_peak).total_seconds(),
+                                                                             self.i.data.index[-1] -
+                                                                             peak).total_seconds(),
                                                                        'interval': self._peak_interval.total_seconds()}]]).T,
                                                       columns=['label', 'data'])
                     self._last_peak = peak
@@ -260,7 +257,7 @@ class WindowDetect(Node):
                 if (valley - self._last_valley).total_seconds() > self._tol:
                     self._valley_interval = valley - self._last_valley
 
-                    self.o_events.data = pd.DataFrame(index=[valley],
+                    self.o.data = pd.DataFrame(index=[valley],
                                                       data=np.array([['valley'],
                                                                      [{'value': self.i.data.min()[0], 'lag': (
                                                                              self.i.data.index[
@@ -277,7 +274,7 @@ class Rate(Node):
     matching the ``event_trigger`` in the ``event_label`` column of the event input,
 
     Attributes:
-        i_events (Port): Events input, expects DataFrame.
+        i (Port): Default input, expects DataFrame.
         o (Port): Default output, provides DataFrame.
 
     """
@@ -301,17 +298,17 @@ class Rate(Node):
     def update(self):
 
         # copy the meta
-        self.o.meta = self.i_events.meta
+        self.o.meta = self.i.meta
 
         # When we have not received data, there is nothing to do
-        if self.i_events.data is None or self.i_events.data.empty:
+        if self.i.data is None or self.i.data.empty:
             return
 
         # At this point, we are sure that we have some data to process
 
         self.o.data = None
 
-        target_index = self.i_events.data[self.i_events.data[
+        target_index = self.i.data[self.i.data[
                                               self._event_label] == self._event_trigger].index
 
         if not target_index.empty:
