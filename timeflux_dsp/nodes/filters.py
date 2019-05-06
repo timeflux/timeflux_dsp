@@ -1,12 +1,15 @@
 """This module contains nodes for signal filtering."""
+from scipy import signal
+import sklearn
+
 
 from timeflux.core.node import Node
-from scipy import signal
+
+
 from timeflux.helpers.clock import *
-from timeflux.core.io import Port
 
 from timeflux_dsp.utils.filters import construct_fir_filter, construct_iir_filter, design_edges
-
+from timeflux.nodes.window import Window
 
 class DropRows(Node):
     """Decimate signal by an integer factor.
@@ -76,10 +79,10 @@ class DropRows(Node):
             # estimate rolling mean (or median) with window length=factor and take every kth sample with k=factor starting from the k-1 position
             if self._method == "mean":
                 self.o.data = self.i.data.rolling(window=self._factor, min_periods=self._factor,
-                                        center=False).mean().iloc[self._factor - 1::self._factor]
+                                                  center=False).mean().iloc[self._factor - 1::self._factor]
             elif self._method == "median":
                 self.o.data = self.i.data.rolling(window=self._factor, min_periods=self._factor,
-                                        center=False).median().iloc[self._factor - 1::self._factor]
+                                                  center=False).median().iloc[self._factor - 1::self._factor]
 
 
 class Resample(Node):
@@ -230,6 +233,7 @@ class IIRFilter(Node):
         if self._columns is None:
             self._columns = self.i.data.columns
 
+        data = []
         for col in self._columns:
             if col not in self._sos:
                 self._sos[col] = self._design_sos()
@@ -237,15 +241,17 @@ class IIRFilter(Node):
                 zi0 = signal.sosfilt_zi(self._sos[col])
                 self._zi[col] = (zi0 * self.i.data[col].values[0])
             port_o_col, self._zi[col] = signal.sosfilt(self._sos[col], self.i.data[col].values.T,
-                                                       zi=self._zi[col])
-            self.o.data.loc[:, col] = port_o_col
+                                                      zi=self._zi[col])
+            data.append(pd.DataFrame(data=port_o_col, columns=[col], index=self.i.data.index))
+        self.o.data = pd.concat(data, axis=1)
 
     def _design_sos(self):
 
         if self._sos_custom is None:
             # Calculate an IIR filter kernel for a given sampling rate.
             sos, self._freqs = construct_iir_filter(fs=self._fs, freqs=self._inputfreqs, mode=self._mode,
-                                                    order=self._order, design=self._design , pass_loss=self._pass_loss, stop_atten=self._stop_atten, output="sos")
+                                                    order=self._order, design=self._design, pass_loss=self._pass_loss,
+                                                    stop_atten=self._stop_atten, output="sos")
             return sos
         else:
             if self._sos_custom.shape[1] == 6:
@@ -362,3 +368,69 @@ class FIRFilter(Node):
         warmup = self._order - 1
         fir_delay = (warmup / 2) / self._fs
         return fir_coeffs, fir_delay
+
+
+
+
+
+class Scaler(Node):
+    def __init__(self, method="StandardScaler", kwargs=None):
+        kwargs = kwargs or {}
+        try:
+            self._scaler = getattr(sklearn.preprocessing, method)(**kwargs)
+        except AttributeError:
+            raise ValueError(
+                "Module {module_name} has no object {method_name}".format(module_name="sklearn.preprocessing",
+                                                                          method_name=method))
+
+    def update(self):
+        if self.i.data is not None and not self.i.data.empty:
+            # scale the signal
+            self.o.data = pd.DataFrame(data=self._scaler.fit_transform(self.i.data.values), columns=self.i.data.columns)
+            if len(self.o.data) == len(self.i.data):
+                self.o.data.index = self.i.data.index
+
+
+
+import sklearn.preprocessing as sklearn_preprocessing
+class AdaptiveScaler(Window):
+    """Scales the data adaptively.
+    This nodes transforms the data using a sklearn scaler object that is continously fitted on a rolling window.
+    """
+
+    def __init__(self, length, method="StandardScaler", kwargs=None):
+        """
+            Args:
+               length (float): The length of the window, in seconds.
+               method (str): Name of the scaler object (see https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing)
+               kwargs : Keyword arguments  to initialize the scaler.
+
+        """
+        super().__init__(length=length, step=0)
+        kwargs = kwargs or {}
+        self._has_fitted = False
+        try:
+            self._scaler = getattr(sklearn_preprocessing, method)(**kwargs)
+        except AttributeError:
+            raise ValueError(
+                "Module {module_name} has no object {method_name}".format(module_name="sklearn.preprocessing",
+                                                                          method_name=method))
+
+    def update(self):
+        if not self.i.ready():
+            return
+
+        # At this point, we are sure that we have some data to process
+        super().update()
+
+        # if the window output is ready, fit the scaler with its values
+        if self.o.ready():
+            X = self.o.data.values
+            self._scaler.fit(X)
+            self._has_fitted = True
+            self.o.clear()
+
+        # if the scaler has been fitted, transform the current data
+        if self._has_fitted and self.i.ready():
+            transformed_data = self._scaler.transform(self.i.data.values)
+            self.o.data = pd.DataFrame(data=transformed_data, columns=self.i.data.columns, index=self.i.data.index)
