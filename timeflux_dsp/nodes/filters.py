@@ -68,7 +68,7 @@ class DropRows(Node):
             return
 
         # At this point, we are sure that we have some data to process
-        self.i.data = pd.concat([self._previous, self.i.data], axis=0)
+        self.i.data = pd.concat([self._previous, self.i.data], axis=0, sort=True)
 
         n = self.i.data.shape[0]
         remaining = n % self._factor
@@ -425,8 +425,8 @@ class AdaptiveScaler(Window):
         super().update()
 
         # if the window output is ready, fit the scaler with its values
-        if self.o.ready():
-            X = self.o.data.values
+        if self.o.ready() and not self.o.data.dropna().emty:
+            X = self.o.data.dropna().values
             self._scaler.fit(X)
             self._has_fitted = True
             self.o.clear()
