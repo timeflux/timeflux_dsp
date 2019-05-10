@@ -91,6 +91,7 @@ class RealTimeDetect(Node):
 
         self._delta = delta  # Peak threshold
         self._tol = tol  # Tolerence for peak matching, in seconds. This can be seen as the minimum time difference
+        self._column_name = None
         # between two peaks
         self._reset_states()
         self._last = pd.to_datetime(now())  # Last timestamp
@@ -107,6 +108,7 @@ class RealTimeDetect(Node):
         self._last_peak = None
         self._last_valley = None
 
+
     def update(self):
 
         # copy the meta
@@ -118,6 +120,9 @@ class RealTimeDetect(Node):
 
         # At this point, we are sure that we have some data to process
         self.o.data = pd.DataFrame()
+
+        if self._column_name is None:
+            self._column_name = self.i.data.columns[0]
 
         for (value, timestamp) in zip(self.i.data.values, self.i.data.index):
             if self._reset is not None:
@@ -132,8 +137,9 @@ class RealTimeDetect(Node):
                                                                                            [{'value': detected[2],
                                                                                              'lag': detected[3],
                                                                                              'interval': detected[
-                                                                                                 4]}]]).T,
+                                                                                                 4], 'column_name': self._column_name}]]).T,
                                                                             columns=['label', 'data']))
+                self.o.meta = {"column_name": self._column_name}
 
     def _on_sample(self, value, timestamp):
         """Peak detection"""
@@ -250,6 +256,8 @@ class WindowDetect(Node):
                                                                              peak).total_seconds(),
                                                                        'interval': self._peak_interval.total_seconds()}]]).T,
                                                       columns=['label', 'data'])
+
+                    self.o.meta = {"column_name": self._column_name}
                     self._last_peak = peak
 
             if self.i.data.min()[0] == self._buffer.min()[0]:
@@ -288,6 +296,8 @@ class Rate(Node):
 
         self._event_trigger = event_trigger
         self._event_label = event_label
+        self._column_name = None
+
         self._reset_states()
 
     def _reset_states(self):
@@ -311,6 +321,9 @@ class Rate(Node):
         target_index = self.i.data[self.i.data[
                                               self._event_label] == self._event_trigger].index
 
+        if self._column_name is None and len(self.i.meta)>0:
+            self._column_name = self.i.meta["column_name"]
+
         if not target_index.empty:
 
             if self._last is None:
@@ -321,5 +334,5 @@ class Rate(Node):
             rate_values = [(np.timedelta64(1, 's') / a) if (a != 0 * np.timedelta64(1, 's')) else None for a in
                            list(np.diff(target_index))]
 
-            self.o.data = pd.DataFrame(index=target_index[1:], data=rate_values, columns=["rate"])
+            self.o.data = pd.DataFrame(index=target_index[1:], data=rate_values, columns=[self._column_name])
             self._last = target_index[-1]
