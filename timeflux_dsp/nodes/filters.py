@@ -425,7 +425,7 @@ class AdaptiveScaler(Window):
         super().update()
 
         # if the window output is ready, fit the scaler with its values
-        if self.o.ready() and not self.o.data.dropna().emty:
+        if self.o.ready() and not self.o.data.dropna().empty:
             X = self.o.data.dropna().values
             self._scaler.fit(X)
             self._has_fitted = True
