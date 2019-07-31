@@ -9,7 +9,7 @@ from timeflux_dsp.nodes.filters import DropRows, Resample
 
 @pytest.fixture(scope='module')
 def data(rate=10, jitter=.05):
-    """Sampling rate of the test data"""
+    """Create object to mimic data streaming """
     data = helpers.DummyData(rate=rate, jitter=jitter)
     return data
 
