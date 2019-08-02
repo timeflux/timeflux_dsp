@@ -1,11 +1,11 @@
 """This module contains nodes for spectral analysis with Timeflux."""
+import pytest
 
-import xarray as xr
+import numpy as np
 from scipy.signal.spectral import fftpack
 from scipy.signal import welch
-
 from timeflux.core.node import Node
-from timeflux.helpers.clock import *
+import xarray as xr
 
 
 class FFT(Node):
@@ -53,7 +53,8 @@ class FFT(Node):
         * `scipy.fftpack <https://docs.scipy.org/doc/scipy/reference/fftpack.html>`_
 
     """
-    def __init__(self, fs=1.0,  nfft=None, return_onesided=True):
+
+    def __init__(self, fs=1.0, nfft=None, return_onesided=True):
         """
             Args:
                 fs (float): Nominal sampling rate of the input data.
@@ -110,12 +111,12 @@ class FFT(Node):
         else:
             self.o.data = self.o.data.apply(lambda x: x.real)
             func = np.fft.rfft
-        values =  func(self.o.data.values.T, n=self._nfft).T
+        values = func(self.o.data.values.T, n=self._nfft).T
         ## deprecated MultiIndex --> XArray
         # self.o.data = pd.DataFrame(index = pd.MultiIndex.from_product([[self.o.data.index[-1]], self._freqs], names = ["times", "freqs"]), data = values, columns = self.o.data.columns)
         self.o.data = xr.DataArray(np.stack([values], 0),
-                            coords=[[self.o.data.index[-1]], self._freqs, self.o.data.columns],
-                            dims=['time', 'freq', 'space'])
+                                   coords=[[self.o.data.index[-1]], self._freqs, self.o.data.columns],
+                                   dims=['time', 'freq', 'space'])
 
 
 class Welch(Node):
@@ -163,40 +164,38 @@ class Welch(Node):
             {SmallWindow-FFT-LargeWindow-Average} with SmallWindow 's parameters `length` and `step` respectively
             equivalent to `nperseg` and `step` and with FFT node with same kwargs.
 
-
     """
-    def __init__(self, fs=1.0, kwargs={}):
+
+    def __init__(self, rate=1.0, **kwargs):
         """
             Args:
-                fs (float): Nominal sampling rate of the input data.
-                kwargs (dict):  Arguments to pass to scipy.signal.welch function.
+                rate (float): Nominal sampling rate of the input data.
+                kwargs:  Keyword arguments to pass to scipy.signal.welch function.
                                 You can specify: window, nperseg, noverlap, nfft, detrend, return_onesided and scaling.
         """
 
-        self._fs = fs
+        self._rate = rate
         self._kwargs = kwargs
         self._set_default()
 
     def _set_default(self):
         # We set the default params if they are not specifies in kwargs in order to check that they are valid, in respect of the length and sampling of the input data.
-        if "nperseg" not in self._kwargs.keys():
-            self._kwargs["nperseg"] = 256
-            self.logger.debug("nperseg := 256")
-        if "nfft" not in self._kwargs.keys():
-            self._kwargs["nfft"] = self._kwargs["nperseg"]
-            self.logger.debug("nfft := nperseg := {nperseg}".format(nperseg = self._kwargs["nperseg"]))
-        if "noverlap" not in self._kwargs.keys():
-            self._kwargs["noverlap"] = self._kwargs["nperseg"]//2
-            self.logger.debug("noverlap := nperseg/2 := {noverlap}".format(noverlap=self._kwargs["noverlap"]))
+        if 'nperseg' not in self._kwargs.keys():
+            self._kwargs['nperseg'] = 256
+            self.logger.debug('nperseg := 256')
+        if 'nfft' not in self._kwargs.keys():
+            self._kwargs['nfft'] = self._kwargs['nperseg']
+            self.logger.debug('nfft := nperseg := {nperseg}'.format(nperseg=self._kwargs['nperseg']))
+        if 'noverlap' not in self._kwargs.keys():
+            self._kwargs['noverlap'] = self._kwargs['nperseg'] // 2
+            self.logger.debug('noverlap := nperseg/2 := {noverlap}'.format(noverlap=self._kwargs['noverlap']))
 
     def _check_nfft(self):
         # Check validity of nfft at first chun
-        if not all(i <= len(self.i.data) for i in [self._kwargs[k] for k in ["nfft", "nperseg", "noverlap"]]):
+        if not all(i <= len(self.i.data) for i in [self._kwargs[k] for k in ['nfft', 'nperseg', 'noverlap']]):
             raise ValueError('nfft, noverlap and nperseg must be greater than or equal to length of chunk.')
         else:
-            self._kwargs["nfft"] = int(self._kwargs["nfft"])
-            self._kwargs["nperseg"] = int(self._kwargs["nperseg"])
-            self._kwargs["noverlap"] = int(self._kwargs["noverlap"])
+            self._kwargs.update({keyword: int(self._kwargs[keyword]) for keyword in ['nfft', 'nperseg', 'noverlap']})
 
     def update(self):
         # copy the meta
@@ -210,12 +209,12 @@ class Welch(Node):
 
         # apply welch on the data:
         self._check_nfft()
-        f, Pxx = welch(x = self.i.data, fs = self._fs, **self._kwargs, axis=0)
+        f, Pxx = welch(x=self.i.data, fs=self._rate, **self._kwargs, axis=0)
         # f is the frequency axis and Pxx the average power of shape (Nfreqs x Nchanels)
-        # we reshape Pxx to fit the ("time" x "freq" x "space") dimensions
+        # we reshape Pxx to fit the ('time' x 'freq' x 'space') dimensions
         self.o.data = xr.DataArray(np.stack([Pxx], 0),
                                    coords=[[self.i.data.index[-1]], f, self.i.data.columns],
-                                   dims=['time', 'freq', 'space'])
+                                   dims=['time', 'frequency', 'space'])
 
 
 class Bands(Node):
@@ -230,8 +229,8 @@ class Bands(Node):
             o_* (Port): Dynamic outputs, provide DataFrame.
 
     """
-    def __init__(self, bands={'delta': [1, 4], 'theta': [4, 8], 'alpha': [8, 12], 'beta': [12, 30]}, relative=False) :
 
+    def __init__(self, bands=None, relative=False):
 
         """
         Args:
@@ -239,17 +238,19 @@ class Bands(Node):
                          An output port will be created with the given names as suffix.
 
         """
+        bands = bands or {'delta': [1, 4], 'theta': [4, 8], 'alpha': [8, 12], 'beta': [12, 30]}
         self._relative = relative
         self._bands = []
         for band in bands.items():
             self._bands.append(dict(port=getattr(self, 'o_' + band[0]),
                                     slice=slice(band[1][0], band[1][1]),
-                                    meta= {"AverageBands": {"range":  band[1], "relative": relative}}))
+                                    meta={'Bands': {'range': band[1],
+                                                    'relative': relative}}))
 
     def update(self):
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None :
+        if self.i.data is None:
             return
 
         # At this point, we are sure that we have some data to process
@@ -261,6 +262,6 @@ class Bands(Node):
                 tot_power[tot_power==0.0] = 1
                 band_power/=tot_power
 
-            band["port"].data = pd.DataFrame(columns = self.i.data.space.values, index = self.i.data.time.values, data=band_power)
-            band["port"].meta = {**(self.i.meta or {}), **band["meta"] }
-
+            band['port'].data = pd.DataFrame(columns=self.i.data.space.values, index=self.i.data.time.values,
+                                             data=band_power)
+            band['port'].meta = {**(self.i.meta or {}), **band['meta']}
