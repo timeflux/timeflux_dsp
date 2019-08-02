@@ -1,12 +1,12 @@
+from datetime import timedelta
 import numpy as np
 import pandas as pd
 from timeflux.core.io import Port
 from timeflux.core.node import Node
-from timeflux.helpers.clock import *
-from datetime import timedelta
+from timeflux.helpers.clock import now
 
 
-class RealTimeDetect(Node):
+class LocalDetect(Node):
     """ Detect peaks and valleys in live 1D signal
     This node uses a simple algorithm to detect peaks in real time.
     When a local extrema (peak or valley) is detected, an event is sent with the nature specified in the label column
@@ -91,8 +91,6 @@ class RealTimeDetect(Node):
 
         self._delta = delta  # Peak threshold
         self._tol = tol  # Tolerence for peak matching, in seconds. This can be seen as the minimum time difference
-        self._column_name = None
-        # between two peaks
         self._reset_states()
         self._last = pd.to_datetime(now())  # Last timestamp
         self._reset = reset
@@ -108,7 +106,6 @@ class RealTimeDetect(Node):
         self._last_peak = None
         self._last_valley = None
 
-
     def update(self):
 
         # copy the meta
@@ -118,11 +115,14 @@ class RealTimeDetect(Node):
         if self.i.data is None or self.i.data.empty:
             return
 
+        if self.i.data.shape[1] != 1:
+            self.logger.warning(f'Peak detection expects data with one column, received '
+                                f'{self.i.data.shape[1]}. Considering the first one. ')
+            self.i.data = self.i.data.take([0], axis=1)
+
+        column_name = self.i.data.columns[0]
         # At this point, we are sure that we have some data to process
         self.o.data = pd.DataFrame()
-
-        if self._column_name is None:
-            self._column_name = self.i.data.columns[0]
 
         for (value, timestamp) in zip(self.i.data.values, self.i.data.index):
             if self._reset is not None:
@@ -133,13 +133,13 @@ class RealTimeDetect(Node):
             # Append event
             if detected:
                 self.o.data = self.o.data.append(pd.DataFrame(index=[detected[0]],
-                                                                            data=np.array([[detected[1]],
-                                                                                           [{'value': detected[2],
-                                                                                             'lag': detected[3],
-                                                                                             'interval': detected[
-                                                                                                 4], 'column_name': self._column_name}]]).T,
-                                                                            columns=['label', 'data']))
-                self.o.meta = {"column_name": self._column_name}
+                                                              data=np.array([[detected[1]],
+                                                                             [{'value': detected[2],
+                                                                               'lag': detected[3],
+                                                                               'interval': detected[4],
+                                                                               'column_name': column_name}]]).T,
+                                                              columns=['label', 'data']))
+                self.o.meta = {"column_name": column_name}
 
     def _on_sample(self, value, timestamp):
         """Peak detection"""
@@ -166,7 +166,7 @@ class RealTimeDetect(Node):
                     self._last_peak = self._mxt
                     return self._mxt, 'peak', self._mxv, (timestamp - self._mxt).total_seconds(), _interval
         else:
-            if (value > self._mnv + self._delta):
+            if value > self._mnv + self._delta:
                 _interval = (self._mxt - self._last_valley).total_seconds()
                 self._mxv = value
                 self._mxt = timestamp
@@ -177,7 +177,7 @@ class RealTimeDetect(Node):
         return False
 
 
-class WindowDetect(Node):
+class RollingDetect(Node):
     """ Detect peaks and valleys on a rolling window of analysis in  1D signal
     This node uses a buffer to compute local extrema and detect peaks in real time.
     When a local extrema (peak or valley) is detected, an event is sent with the nature specified in the label column
@@ -229,6 +229,13 @@ class WindowDetect(Node):
         if self.i.data is None or self.i.data.empty:
             return
 
+        if self.i.data.shape[1] != 1:
+            self.logger.warning(f'Peak detection expects data with one column, received '
+                                f'{self.i.data.shape[1]}. Considering the first one. ')
+            self.i.data = self.i.data.take([0], axis=1)
+
+        self.o.meta = {'column_name': self.i.data.columns[0]}
+
         # At this point, we are sure that we have some data to process
         if not self._warmed_up:
             if self._last_peak is None: self._last_peak = self.i.data.index[0]
@@ -250,14 +257,14 @@ class WindowDetect(Node):
                     self._peak_interval = peak - self._last_peak
 
                     self.o.data = pd.DataFrame(index=[peak],
-                                                      data=np.array([['peak'],
-                                                                     [{'value': self.i.data.max()[0], 'lag': (
-                                                                             self.i.data.index[-1] -
-                                                                             peak).total_seconds(),
-                                                                       'interval': self._peak_interval.total_seconds()}]]).T,
-                                                      columns=['label', 'data'])
+                                               data=np.array([['peak'],
+                                                              [{'value': self.i.data.max()[0], 'lag': (
+                                                                      self.i.data.index[-1] -
+                                                                      peak).total_seconds(),
+                                                                'interval': self._peak_interval.total_seconds(),
+                                                                'column_name': self.i.data.columns[0]}]]).T,
+                                               columns=['label', 'data'])
 
-                    self.o.meta = {"column_name": self._column_name}
                     self._last_peak = peak
 
             if self.i.data.min()[0] == self._buffer.min()[0]:
@@ -266,12 +273,13 @@ class WindowDetect(Node):
                     self._valley_interval = valley - self._last_valley
 
                     self.o.data = pd.DataFrame(index=[valley],
-                                                      data=np.array([['valley'],
-                                                                     [{'value': self.i.data.min()[0], 'lag': (
-                                                                             self.i.data.index[
-                                                                                 -1] - self._last_valley).total_seconds(),
-                                                                       'interval': self._valley_interval.total_seconds()}]]).T,
-                                                      columns=['label', 'data'])
+                                               data=np.array([['valley'],
+                                                              [{'value': self.i.data.min()[0], 'lag': (
+                                                                      self.i.data.index[
+                                                                          -1] - self._last_valley).total_seconds(),
+                                                                'interval': self._valley_interval.total_seconds(),
+                                                                'column_name': self.i.data.columns[0]}]]).T,
+                                               columns=['label', 'data'])
                     self._last_valley = valley
 
 
@@ -297,12 +305,10 @@ class Rate(Node):
         self._event_trigger = event_trigger
         self._event_label = event_label
         self._column_name = None
-
-        self._reset_states()
+        self._last = None
 
     def _reset_states(self):
         # Reset peak detection internal state.
-
         self._last = None
 
     def update(self):
@@ -319,9 +325,9 @@ class Rate(Node):
         self.o.data = None
 
         target_index = self.i.data[self.i.data[
-                                              self._event_label] == self._event_trigger].index
+                                       self._event_label] == self._event_trigger].index
 
-        if self._column_name is None and len(self.i.meta)>0:
+        if self._column_name is None and len(self.i.meta) > 0:
             self._column_name = self.i.meta["column_name"]
 
         if not target_index.empty:
