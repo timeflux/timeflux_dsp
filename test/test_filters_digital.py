@@ -138,6 +138,14 @@ def test_cascade_firfilter(generator):
     fir_o_delayed.index -= delay * np.timedelta64(1, 's')
 
 
+def test_bandpass_power_ratio():
+    # Prepare a reproducible example
+    np.random.seed(42)
+    rate = 512
+    n = int(rate * 30)  # 30 seconds of data
+    lo, hi = 10, 20
+    original = tm.makeTimeDataFrame(n)
+    original.index = original.index[0] + pd.to_timedelta(np.arange(n) / rate, unit='s')
 
     node_iir = IIRFilter(rate=rate,
                          columns='all',
