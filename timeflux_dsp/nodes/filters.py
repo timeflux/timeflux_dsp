@@ -227,10 +227,8 @@ class IIRFilter(Node):
             frequencies (list|None): Transition frequencies. Ignored when sos is given.
             filter_type (str|None): Filter mode (`lowpass`, `highpass`, `bandstop`, `bandpass`).
                             Default: `bandpass`. Ignored when sos is given.
-            design (str): Design of the transfert function of the filter. Default: `butter`
-            pass_loss (float): Maximum attenuation in passband. Default: `3.0`.
-            stop_atten (float): Minimum attenuation in stop_band. Default: `50.0`.
-            sos (array, optional) : Array of second-order sections (sos) representation, must have shape (n_sections, 6). Default: `None`.
+            sos (array|None, optional) : Array of second-order sections (sos) representation, must have shape (n_sections, 6). Default: `None`.
+            kwargs: keyword arguments to pass to the filter constructor
         """
         super().__init__()
 
@@ -345,7 +343,8 @@ class FIRFilter(Node):
 
     """
 
-    def __init__(self, frequencies, rate=None, columns='all', order=20, filter_type="bandpass", coeffs=None, **kwargs):
+    def __init__(self, frequencies, rate=None, columns='all', order=20, filter_type="bandpass",
+                 coeffs=None, **kwargs):
         """
          Args:
             rate (float): Nominal sampling rate of the input data.
@@ -353,10 +352,9 @@ class FIRFilter(Node):
             order (int): Filter order.
             frequencies (list): Transition frequencies.
             filter_type (str, optional): Filter mode (`lowpass`, `highpass`, `bandstop` or `bandpass`). Default: `bandpass`.
-            design (str, optional): Design of the transfert function of the filter. Default: `firwin2`.
-            phase (str, optional): Phase response (`linear`, `zero`, `zero-double` or `minimum`). Default: `linear`.
-            window (str, optional): The window to use in FIR design, (`hamming`, `hann`, or `blackman`). Default: `hamming`.
-            coeffs (array, optional): Custom coeffs to pass as ``b`` in `signal.filter`. Default: `None`.
+            coeffs (array|None, optional): Custom coeffs to pass as ``b`` in `signal.filter`. Default: `None`.
+            kwargs: keyword arguments to pass to the filter constructor (window, phasea,... )
+
         """
         super().__init__()
         self._order = order
