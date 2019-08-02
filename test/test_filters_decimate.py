@@ -3,14 +3,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import helpers
+from timeflux.helpers.tests import DummyData
 from timeflux_dsp.nodes.filters import DropRows, Resample
 
 
 @pytest.fixture(scope='module')
 def data(rate=10, jitter=.05):
     """Create object to mimic data streaming """
-    data = helpers.DummyData(rate=rate, jitter=jitter)
+    data = DummyData(rate=rate, jitter=jitter)
     return data
 
 
@@ -39,7 +39,7 @@ def test_droprows_2(data):
 
     for factor in [2, 3, 4, 8]:
         data.reset()
-        node = DropRows(factor=factor, method="mean")
+        node = DropRows(factor=factor, method='mean')
         chunk = data.next(5)
         port_o = []
         while not chunk.empty:
