@@ -256,11 +256,11 @@ class Bands(Node):
         # At this point, we are sure that we have some data to process
         for band in self._bands:
             # 1. select the Xarray on freq axis in the range, 2. average along freq axis
-            band_power = self.i.data.loc[{"freq": band["slice"]}].sum("freq").values # todo: sum
+            band_power = self.i.data.loc[{'frequency': band['slice']}].mean('frequency').values  # todo: sum
             if self._relative:
-                tot_power = self.i.data.sum("freq").values
-                tot_power[tot_power==0.0] = 1
-                band_power/=tot_power
+                tot_power = self.i.data.mean('frequency').values
+                tot_power[tot_power == 0.0] = 1
+                band_power /= tot_power
 
             band['port'].data = pd.DataFrame(columns=self.i.data.space.values, index=self.i.data.time.values,
                                              data=band_power)
