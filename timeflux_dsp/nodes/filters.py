@@ -70,6 +70,10 @@ class DropRows(Node):
         # copy the meta
         self.o.meta = self.i.meta
 
+        # if nominal rate is specified in the meta, update it.
+        if 'nominal_rate' in self.o.meta:
+            self.o.meta['nominal_rate'] /= self._factor
+
         # When we have not received data, there is nothing to do
         if self.i.data is None or self.i.data.empty:
             return
