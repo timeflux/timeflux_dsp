@@ -1,0 +1,12 @@
+name: timeflux-dsp
+dependencies:
+    - python>=3.6
+    - scikit-learn==0.20.2
+    - pandas
+    - scipy
+    # Pip dependencies
+    - pip
+    - pip:
+        - mne
+        - git+https://github.com/neuropsychology/NeuroKit.py
+        - https://github.com/timeflux/timeflux
