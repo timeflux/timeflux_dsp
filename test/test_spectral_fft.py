@@ -1,21 +1,15 @@
-"""Tests for nodes"""
+"""Tests for nodes from timeflux_dsp.nodes.spectral"""
 
-import pytest
-import pandas as pd
 import numpy as np
-from timeflux.core.registry import Registry
-import helpers
+import pandas as pd
+import pytest
 import xarray as xr
-
-
-Registry.cycle_start = 0
-Registry.rate = 1
-
+from timeflux.helpers.testing import DummyData
 from timeflux_dsp.nodes.spectral import FFT
 
-fs=10
+fs = 10
 
-data = helpers.DummyData( rate=fs, jitter=.05,)
+data = DummyData(rate=fs, jitter=.05, )
 all_data = data.next(50)
 
 
@@ -27,7 +21,7 @@ def test_welch():
 
     node.update()
     expected_freqs = [0., 2.0, 4.0, -4.0, -2.0]
-    expected_times = [pd.Timestamp("2018-01-01 00:00:00.396560186")]
+    expected_times = [pd.Timestamp('2018-01-01 00:00:00.396560186')]
     expected_data = np.array([[2.687793 + 0.j, 2.69977 + 0.j, 4.158542 + 0.j, 2.907866 + 0.j, 2.979773 + 0.j],
                               [-0.32328042 + 0.45056971j, -0.09741619 - 0.84999621j, 0.19777914 - 0.14955481j,
                                0.33690762 + 1.2010184j, 0.65131083 + 0.03780588j],
@@ -62,4 +56,3 @@ def test_fft_nfft():
     node.i.data = data.next(10)
     node.update()
     assert node._nfft == 10
-

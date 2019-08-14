@@ -1,0 +1,41 @@
+graphs:
+
+  - id: example
+    nodes:
+    - id: random
+      module: timeflux.nodes.random
+      class: Random
+      params:
+        rows_min: 512
+        rows_max: 512
+    # Continuously buffer the signal.
+    - id: window
+      module: timeflux.nodes.window
+      class: Window
+      params:
+        length: 1.5
+        step: 0.5
+    # Compute the power spectral.
+    - id: welch
+      module: timeflux_dsp.nodes.spectral
+      class: Welch
+      params:
+        fs: 512
+    # Average the power over band frequencies.
+    - id: bands
+      module: timeflux_dsp.nodes.spectral
+      class: Bands
+    # Send the signal in OSC.
+    - id: display
+      module: timeflux.nodes.debug
+      class: Display
+    edges:
+    - source: random
+      target: window
+    - source: window
+      target: welch
+    - source: welch
+      target: bands
+    - source: bands:alpha
+      target: display
+    rate: 1

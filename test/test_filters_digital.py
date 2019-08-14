@@ -1,150 +1,210 @@
 """Tests for iir and fir nodes"""
 
-import pytest
-import pandas as pd
 import numpy as np
-from timeflux.core.registry import Registry
-
-import helpers
-from copy import copy
-
+import pandas as pd
+import pandas.util.testing as tm
+import pytest
+from timeflux.helpers.testing import ReadData, Looper
 from timeflux_dsp.nodes.filters import FIRFilter, IIRFilter
 
-Registry.cycle_start = 0
-Registry.rate = 1
 
-#------------------------------------------------------------------
-# Create a signal for demonstration of IIR/FIR/FiltFilt filtering .
-#------------------------------------------------------------------
-# 320 samples of (1000Hz + 15000 Hz) at 48 kHz
-sample_rate = 50
-nsamples = 300
-
-F_carrier = 0.5
-A_carrier = 1.0
-
-F_noise = 10
-A_noise = 0.1
-
-# The cutoff frequency of the filter: 6KHz
-cutoff_hz = 3
-
-t = np.arange(nsamples) / sample_rate
-signal = A_carrier * np.sin(2*np.pi*F_carrier*t)
-noise = A_noise*np.sin(2*np.pi*F_noise*t)
-
-data_clean = pd.DataFrame(data=copy(signal), index = t)
-data_noise = pd.DataFrame(data=copy(noise), index = t)
-
-data_input = data_clean + data_noise
-
-custom_data = helpers.CustomData(data_input)
-
-#------------------------------------------------------------------
-# Create a IIR filter and apply it to signal.
-#------------------------------------------------------------------
-# create filter
-node_iir = IIRFilter(fs = sample_rate, columns = 'all', order = 3, freqs = [cutoff_hz], mode="lowpass")
-
-expected_sos = np.array([[ 0.00475052,  0.00950105,  0.00475052,  1.        , -0.6795993 ,    0.        ],
-                        [ 1.        ,  1.        ,  0.        ,  1.        , -1.57048578,  0.68910035]])
+@pytest.fixture(scope='module')
+def rate():
+    return 50
 
 
+# ------------------------------------------------------------------
+# Create a signal for demonstration of IIR/FIR filtering .
+# ------------------------------------------------------------------
+@pytest.fixture(scope='module')
+def generator(rate):
+    """Create object to mimic data streaming """
+    # Signal of 300 points (sum of two sinus at 0.5 Hz  and 10 Hz) sampled at 50 kHz.
 
-def test_cascade_iirfilter():
+    n = int(rate * 30)  # 30 seconds of data
+    m = 3
+
+    f_carrier = 0.5
+    a_carrier = 1.0
+
+    f_noise = 10
+    a_noise = 0.1
+
+    tm.K = m  # tm will generate 7 columns
+    original = tm.makeTimeDataFrame(n, freq='L').rename(
+        columns={
+            'A': 'noise',
+            'B': 'carrier',
+            'C': 'signal',
+        }
+    )
+    original.index = original.index[0] + pd.to_timedelta(np.arange(n) / rate, unit='s')
+    t = (original.index - original.index[0]) / np.timedelta64(1, 's')
+    original['noise'] = a_noise * np.sin(2 * np.pi * f_noise * t)
+    original['carrier'] = a_carrier * np.sin(2 * np.pi * f_carrier * t)
+    original['signal'] = original.carrier + original.noise
+    data = ReadData(original[['signal']])
+    data._rate = rate
+    return data
+
+
+# -----------------------------------------------------------------------------
+# Test that filtering online (chunk by chunk) is the same as filtering offline
+# -----------------------------------------------------------------------------
+def test_cascade_iirfilter(generator):
+    """ Test IIRFilter cascade  """
+    rate = generator._rate
+    cutoff_hz = 3
+    # create filter
+    node_iir = IIRFilter(rate=rate,
+                         columns='all',
+                         frequencies=[cutoff_hz],
+                         filter_type="lowpass",
+                         order=3)
+
+    # Filter online (chunk by chunk)
+    # --------------
     # reset the data streamer
-    custom_data.reset()
+    generator.reset()
+    looper = Looper(node=node_iir, generator=generator)
+    cascade_output, _ = looper.run(chunk_size=5)
 
-    output_iir = []
-    a = custom_data.next(5)
-    node_iir.i.data = a.copy()
-    node_iir.update()
-
-    # mimic the scheduler
-    output_iir.append(node_iir.o.data)
-    a = custom_data.next(5).copy()
-    while not a.empty:
-        node_iir.i.data = a.copy()
-        node_iir.update()
-        output_iir.append(node_iir.o.data)
-        a = custom_data.next(5)
-    cascade_output = pd.concat(output_iir)
-
-    node_iir.i.data = data_input.copy()
-    node_iir.update()
-    continuous_output = node_iir.o.data
+    # Filter offline (whole data)
+    # --------------
+    # reset the data streamer
+    generator.reset()
+    looper = Looper(node=node_iir, generator=generator)
+    continuous_output, _ = looper.run(chunk_size=None)
 
     # assert filters coeffs are correct
-    np.testing.assert_array_almost_equal(node_iir._sos[0], expected_sos)
+    expected_sos = np.array([[0.00475052, 0.00950105, 0.00475052, 1., -0.6795993, 0.],
+                             [1., 1., 0., 1., -1.57048578, 0.68910035]])
+    np.testing.assert_array_almost_equal(node_iir._sos, expected_sos)
 
     # assert signal filtered offline and online are the same after the warmup period.
     order = 3
-    warmup = 10 * (order) / (node_iir._fs)
-    np.testing.assert_array_almost_equal(continuous_output.iloc[int(warmup * node_iir._fs):].values,
-                                         cascade_output.iloc[int(warmup * node_iir._fs):].values, 3)
+    warmup = 100 * (order) / (node_iir._rate)
+    np.testing.assert_array_almost_equal(continuous_output.iloc[int(warmup * node_iir._rate):].values,
+                                         cascade_output.iloc[int(warmup * node_iir._rate):].values, 3)
 
 
+def test_cascade_firfilter(generator):
+    """ Test FIRFilter"""
+    rate = generator._rate
 
-def test_custom_sos():
-    # sos has valid form
-    node_iir_custom1 = IIRFilter(fs=sample_rate, columns='all', order=None, freqs=None, mode=None, sos=expected_sos)
-    custom_data.reset()
-    a = custom_data.next(5).copy()
-    node_iir_custom1.i.data = a.copy()
-    node_iir_custom1.update()
+    # create the filter
+    node_fir = FIRFilter(rate=rate, columns="all", order=20, frequencies=[3, 4], filter_type="lowpass")
+    expected_coeffs = np.array([-0.00217066, -0.00208553, -0.00108039, 0.00392436, 0.01613796,
+                                0.03711417, 0.06535715, 0.09608169, 0.12241194, 0.13763991,
+                                0.13763991, 0.12241194, 0.09608169, 0.06535715, 0.03711417,
+                                0.01613796, 0.00392436, -0.00108039, -0.00208553, -0.00217066])
 
-    # sos does not have valid form
-    from timeflux.core.exceptions import TimefluxException
-    with pytest.raises(ValueError):
-        node_iir_custom2 = IIRFilter(fs=sample_rate, columns='all', order=None, freqs=None, mode=None,
-                                     sos=expected_sos[:, :5])
-        node_iir_custom2.i.data = a.copy()
-        node_iir_custom2.update()
-
-#------------------------------------------------------------------
-#  Create a FIR filter and apply it to signal.
-#------------------------------------------------------------------
-
-# create the filter
-node_fir = FIRFilter(fs=sample_rate, columns="all", order=20, freqs=[cutoff_hz, cutoff_hz+1], mode="lowpass")
-expected_coeffs = np.array([-0.00217066, -0.00208553, -0.00108039,  0.00392436,  0.01613796,
-                            0.03711417,  0.06535715,  0.09608169,  0.12241194,  0.13763991,
-                            0.13763991,  0.12241194,  0.09608169,  0.06535715,  0.03711417,
-                            0.01613796,  0.00392436, -0.00108039, -0.00208553, -0.00217066])
-
-def test_cascade_firfilter():
+    # Filter online (chunk by chunk)
+    # --------------
     # reset the data streamer
-    custom_data.reset()
+    generator.reset()
+    looper = Looper(node=node_fir, generator=generator)
+    cascade_output, cascade_meta = looper.run(chunk_size=5)
 
-    # mimic the scheduler
-    output_fir = []
-    output_delay = []
-    a = custom_data.next(5).copy()
-    while not a.empty:
-        node_fir.i.data = a
-        node_fir.update()
-        output_fir.append(node_fir.o.data)
-        a = custom_data.next(5).copy()
-        delay = node_fir.o.meta['FIRFilter']['delay'][0]
-        output_delay.append(delay)
+    # Filter offline (whole data)
+    # --------------
+    # reset the data streamer
+    generator.reset()
+    looper = Looper(node=node_fir, generator=generator)
+    cascade_output, metas = looper.run(chunk_size=None)
 
-    cascade_output = pd.concat(output_fir)
-
-    node_fir.i.data = data_input.copy()
+    # Filter offline
+    # --------------
+    node_fir.i.data = generator._data.copy()
     node_fir.update()
     continuous_output = node_fir.o.data
 
-    delay = node_fir.o.meta['FIRFilter']['delay'][0]
+    delay = cascade_meta[0]['FIRFilter']['delay']
 
     # assert filters coeffs are correct
-
-    np.testing.assert_array_almost_equal(node_fir._coeffs[0], expected_coeffs)
+    np.testing.assert_array_almost_equal(node_fir._coeffs, expected_coeffs)
 
     # assert signal filtered offline and online are the same
     warmup = delay * 2
-    pd.testing.assert_frame_equal(continuous_output.iloc[int(warmup*node_fir._fs):], cascade_output.iloc[int(warmup*node_fir._fs):], check_less_precise=3)
-
+    pd.testing.assert_frame_equal(continuous_output.iloc[int(warmup * node_fir._rate):],
+                                  cascade_output.iloc[int(warmup * node_fir._rate):],
+                                  check_less_precise=3)
 
     # correct for induced delay
     fir_o_delayed = cascade_output.copy()
-    fir_o_delayed.index -= delay
+    fir_o_delayed.index -= delay * np.timedelta64(1, 's')
+
+
+def test_bandpass_power_ratio():
+    # Prepare a reproducible example
+    np.random.seed(42)
+    rate = 512
+    n = int(rate * 30)  # 30 seconds of data
+    lo, hi = 10, 20
+    original = tm.makeTimeDataFrame(n)
+    original.index = original.index[0] + pd.to_timedelta(np.arange(n) / rate, unit='s')
+
+    node_iir = IIRFilter(rate=rate,
+                         columns='all',
+                         frequencies=[lo, hi], filter_type='bandpass')
+    node_fir = FIRFilter(rate=rate,
+                         columns='all',
+                         frequencies=[lo, hi], filter_type='bandpass',
+                         order=rate
+                         )
+
+    for node in [node_iir, node_fir]:
+        node.i.data = original.copy()
+        node.update()
+        filtered = node.o.data
+
+        freqs = np.fft.fftfreq(n, 1 / rate)
+
+        # Compare in frequency domain
+        x = original.values
+        X = np.fft.fft(x, axis=0)
+        y = filtered.values
+        Y = np.fft.fft(y, axis=0)
+
+        f_tol = 1.5  # frequency tolerance from mne
+        inner_mask = (freqs > (lo + f_tol)) & (freqs < (hi - f_tol))
+        outer_mask = (freqs < (lo - f_tol)) | (freqs > (hi + f_tol))
+        pass_ratio = np.abs(Y[inner_mask]) / np.abs(X[inner_mask])
+        block_ratio = np.abs(Y[outer_mask]) / np.abs(X[outer_mask])
+
+        # Note for the asserts: absolute tolerances taken from mne would be
+        # 0.02 for pass and 0.20 for blocked.
+        # We are currently not as good so we are being a bit more relaxed (0.05)
+        # for the pass ratio
+        np.testing.assert_allclose(np.mean(pass_ratio, axis=0), 1, atol=0.05)
+        np.testing.assert_allclose(np.mean(block_ratio, axis=0), 0, atol=0.20)
+
+
+def test_custom_sos(generator):
+    """ Test sos parameter from IIRFilter"""
+    rate = generator._rate
+
+    # sos has valid form
+    sos = np.array([[0.00475052, 0.00950105, 0.00475052, 1., -0.6795993, 0.],
+                    [1, 1., 0., 1., -1.57048578, 0.68910035]])
+    node_iir_custom1 = IIRFilter(rate=rate,
+                                 columns='all',
+                                 order=None,
+                                 frequencies=None,
+                                 filter_type=None,
+                                 sos=sos)
+    generator.reset()
+    chunk = generator.next(5).copy()
+    node_iir_custom1.i.data = chunk.copy()
+    node_iir_custom1.update()
+
+    # sos does not have valid form
+    with pytest.raises(ValueError):
+        node_iir_custom2 = IIRFilter(rate=rate,
+                                     columns='all',
+                                     order=None,
+                                     frequencies=None,
+                                     filter_type=None,
+                                     sos=sos[:, :5])
+        node_iir_custom2.i.data = chunk.copy()
+        node_iir_custom2.update()

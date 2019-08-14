@@ -1,12 +1,12 @@
+from datetime import timedelta
 import numpy as np
 import pandas as pd
 from timeflux.core.io import Port
 from timeflux.core.node import Node
-from timeflux.helpers.clock import *
-from datetime import timedelta
+from timeflux.helpers.clock import now
 
 
-class RealTimeDetect(Node):
+class LocalDetect(Node):
     """ Detect peaks and valleys in live 1D signal
     This node uses a simple algorithm to detect peaks in real time.
     When a local extrema (peak or valley) is detected, an event is sent with the nature specified in the label column
@@ -20,6 +20,15 @@ class RealTimeDetect(Node):
     Attributes:
         i (Port): Default input, expects DataFrame.
         o (Port): Events output, provides DataFrame.
+
+    Args:
+        delta (float): Threshold for peak/valley matching in amplitude. This can be seen as the minimum significant
+                    change enough to detect a peak/valley.
+        tol (float): Tolerence for peak/valley matching, in seconds. This can be seen as the minimum time difference
+                    between two peaks/valleys.
+        reset (float): Reset threshold, in seconds.
+                    This can be seen as the maximum duration of plausible transitions between peaks and valleys.
+                    Default: None.
 
     Example:
        .. literalinclude:: /../../timeflux_dsp/test/graphs/droprows.yaml
@@ -49,16 +58,20 @@ class RealTimeDetect(Node):
 
     Notes:
 
-        This peak detection is considered real-time since it does not require buffering the data. However, the detection method necessarily involve a lag between the actual peak and its detection.
+        This peak detection is considered real-time since it does not require buffering the data. However, the detection
+        method necessarily involve a lag between the actual peak and its detection.
         Indeed, the internal state of the node is either "looking for a peak" or "looking for a valley".
 
-        - If the node is "looking for a peak", it means it computes local maxima until the signal drops significantly (ie. more than ``delta``)
-        - If the node is "looking for a valley", it means it computes local minima until the signal rises significantly (ie. more than ``delta``)
+        - If the node is "looking for a peak", it means it computes local maxima
+            until the signal drops significantly (ie. more than ``delta``)
+        - If the node is "looking for a valley", it means it computes local minima
+        until the signal rises significantly (ie. more than ``delta``)
 
         The "last local extrema" is set to a peak (resp. valley) as soon as the signal drops (resp. rises) significantly.
         Hence, there is an intrinsic lag in the detection, that is directly linked to parameter ``delta``.
 
-        Hence, by decreasing delta, we minimize the lag. But if delta is too small, we'll suffer from false positive detection, unless ``tol`` is tuned to avoid too closed detections.
+        Hence, by decreasing delta, we minimize the lag. But if delta is too small,
+        we'll suffer from false positive detection, unless ``tol`` is tuned to avoid too closed detections.
         The parameters should be tuned depending on the nature of the data, ie. their dynamic, quality, shapes.
 
         See the illustration above:
@@ -78,26 +91,16 @@ class RealTimeDetect(Node):
     """
 
     def __init__(self, delta, tol, reset=None):
-        """
-        Args:
-            delta (float): Threshold for peak/valley matching in amplitude. This can be seen as the minimum significant
-                        change enough to detect a peak/valley.
-            tol (float): Tolerence for peak/valley matching, in seconds. This can be seen as the minimum time difference
-                        between two peaks/valleys.
-            reset (float): Reset threshold, in seconds.
-                        This can be seen as the maximum duration of plausible transitions between peaks and valleys.
-                        Default: None.
-        """
 
+        super().__init__()
         self._delta = delta  # Peak threshold
         self._tol = tol  # Tolerence for peak matching, in seconds. This can be seen as the minimum time difference
-        self._column_name = None
-        # between two peaks
         self._reset_states()
         self._last = pd.to_datetime(now())  # Last timestamp
         self._reset = reset
 
     def _reset_states(self):
+
         """Reset peak detection internal state."""
         self._mxv = -np.Inf  # local max value
         self._mnv = np.Inf  # local min value
@@ -108,7 +111,6 @@ class RealTimeDetect(Node):
         self._last_peak = None
         self._last_valley = None
 
-
     def update(self):
 
         # copy the meta
@@ -118,11 +120,14 @@ class RealTimeDetect(Node):
         if self.i.data is None or self.i.data.empty:
             return
 
+        if self.i.data.shape[1] != 1:
+            self.logger.warning(f'Peak detection expects data with one column, received '
+                                f'{self.i.data.shape[1]}. Considering the first one. ')
+            self.i.data = self.i.data.take([0], axis=1)
+
+        column_name = self.i.data.columns[0]
         # At this point, we are sure that we have some data to process
         self.o.data = pd.DataFrame()
-
-        if self._column_name is None:
-            self._column_name = self.i.data.columns[0]
 
         for (value, timestamp) in zip(self.i.data.values, self.i.data.index):
             if self._reset is not None:
@@ -133,16 +138,17 @@ class RealTimeDetect(Node):
             # Append event
             if detected:
                 self.o.data = self.o.data.append(pd.DataFrame(index=[detected[0]],
-                                                                            data=np.array([[detected[1]],
-                                                                                           [{'value': detected[2],
-                                                                                             'lag': detected[3],
-                                                                                             'interval': detected[
-                                                                                                 4], 'column_name': self._column_name}]]).T,
-                                                                            columns=['label', 'data']))
-                self.o.meta = {"column_name": self._column_name}
+                                                              data=np.array([[detected[1]],
+                                                                             [{'value': detected[2],
+                                                                               'lag': detected[3],
+                                                                               'interval': detected[4],
+                                                                               'column_name': column_name}]]).T,
+                                                              columns=['label', 'data']))
+                self.o.meta = {"column_name": column_name}
 
     def _on_sample(self, value, timestamp):
         """Peak detection"""
+
         if self._last_peak is None:
             self._last_peak = timestamp
         if self._last_valley is None:
@@ -166,7 +172,7 @@ class RealTimeDetect(Node):
                     self._last_peak = self._mxt
                     return self._mxt, 'peak', self._mxv, (timestamp - self._mxt).total_seconds(), _interval
         else:
-            if (value > self._mnv + self._delta):
+            if value > self._mnv + self._delta:
                 _interval = (self._mxt - self._last_valley).total_seconds()
                 self._mxv = value
                 self._mxt = timestamp
@@ -177,16 +183,22 @@ class RealTimeDetect(Node):
         return False
 
 
-class WindowDetect(Node):
+class RollingDetect(Node):
     """ Detect peaks and valleys on a rolling window of analysis in  1D signal
     This node uses a buffer to compute local extrema and detect peaks in real time.
-    When a local extrema (peak or valley) is detected, an event is sent with the nature specified in the label column
-    ("peak"/"valley) and
+    When a local extrema (peak or valley) is detected, an event is sent with the
+    nature specified in the label column ("peak"/"valley) and
     the characteristics in the data column, giving:
 
     - **value**: Amplitude of the extrema.
     - **lag**: Time laps between the extrema and its detection.
     - **interval**: Duration between two extrema os same nature.
+
+    Args:
+        window (float): Window of analysis in seconds, on which local max/min is computed.
+        tol (float): Tolerance for peak/valley matching, in seconds.
+        This can be seen as the minimum time difference
+        between two peaks/valleys.
 
     Attributes:
         i (Port): Default input, expects DataFrame.
@@ -194,21 +206,16 @@ class WindowDetect(Node):
     """
 
     def __init__(self, window=0.5, tol=0.1):
-        """
-        Args:
-            window (float): Window of analysis in seconds, on which local max/min is computed.
-            tol (float): Tolerence for peak/valley matching, in seconds. This can be seen as the minimum time difference
-            between two peaks/valleys.
-        """
 
+        super().__init__()
         self._window = window  # Window of analysis
-        self._tol = tol  # Tolerence for peak matching, in seconds.
-        # This can be seen as the minimum time difference between two peaks
+        self._tol = tol  # Tolerance for peak matching, in seconds.
+        # (this can be seen as the minimum time difference between two peaks)
 
         self._reset_states()
 
     def _reset_states(self):
-        # Reset peak detection internal state.
+        """Reset peak detection internal state."""
 
         self._buffer = pd.DataFrame()
         # self._timestamps_buff = []  # np.zeros((2*self.n))
@@ -226,8 +233,15 @@ class WindowDetect(Node):
         self.o.meta = self.i.meta
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None or self.i.data.empty:
+        if not self.i.ready():
             return
+
+        if self.i.data.shape[1] != 1:
+            self.logger.warning(f'Peak detection expects data with one column, received '
+                                f'{self.i.data.shape[1]}. Considering the first one. ')
+            self.i.data = self.i.data.take([0], axis=1)
+
+        self.o.meta = {'column_name': self.i.data.columns[0]}
 
         # At this point, we are sure that we have some data to process
         if not self._warmed_up:
@@ -250,14 +264,13 @@ class WindowDetect(Node):
                     self._peak_interval = peak - self._last_peak
 
                     self.o.data = pd.DataFrame(index=[peak],
-                                                      data=np.array([['peak'],
-                                                                     [{'value': self.i.data.max()[0], 'lag': (
-                                                                             self.i.data.index[-1] -
-                                                                             peak).total_seconds(),
-                                                                       'interval': self._peak_interval.total_seconds()}]]).T,
-                                                      columns=['label', 'data'])
+                                               data=np.array([['peak'],
+                                                              [{'value': self.i.data.max()[0],
+                                                                'lag': (self.i.data.index[-1] - peak).total_seconds(),
+                                                                'interval': self._peak_interval.total_seconds(),
+                                                                'column_name': self.i.data.columns[0]}]]).T,
+                                               columns=['label', 'data'])
 
-                    self.o.meta = {"column_name": self._column_name}
                     self._last_peak = peak
 
             if self.i.data.min()[0] == self._buffer.min()[0]:
@@ -266,12 +279,13 @@ class WindowDetect(Node):
                     self._valley_interval = valley - self._last_valley
 
                     self.o.data = pd.DataFrame(index=[valley],
-                                                      data=np.array([['valley'],
-                                                                     [{'value': self.i.data.min()[0], 'lag': (
-                                                                             self.i.data.index[
-                                                                                 -1] - self._last_valley).total_seconds(),
-                                                                       'interval': self._valley_interval.total_seconds()}]]).T,
-                                                      columns=['label', 'data'])
+                                               data=np.array([['valley'],
+                                                              [{'value': self.i.data.min()[0],
+                                                                'lag': (self.i.data.index[
+                                                                            -1] - self._last_valley).total_seconds(),
+                                                                'interval': self._valley_interval.total_seconds(),
+                                                                'column_name': self.i.data.columns[0]}]]).T,
+                                               columns=['label', 'data'])
                     self._last_valley = valley
 
 
@@ -285,23 +299,21 @@ class Rate(Node):
         i (Port): Default input, expects DataFrame.
         o (Port): Default output, provides DataFrame.
 
+    Args:
+        event_trigger (string): The marker name.
+        event_label (string): The column to match for event_trigger.
     """
 
     def __init__(self, event_trigger='peak', event_label='label'):
-        """
-        Args:
-            event_trigger (string): The marker name.
-            event_label (string): The column to match for event_trigger.
-        """
 
+        super().__init__()
         self._event_trigger = event_trigger
         self._event_label = event_label
         self._column_name = None
-
-        self._reset_states()
+        self._last = None
 
     def _reset_states(self):
-        # Reset peak detection internal state.
+        """Reset peak detection internal state."""
 
         self._last = None
 
@@ -311,17 +323,16 @@ class Rate(Node):
         self.o.meta = self.i.meta
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None or self.i.data.empty:
+        if not self.i.ready():
             return
 
         # At this point, we are sure that we have some data to process
-
         self.o.data = None
 
         target_index = self.i.data[self.i.data[
-                                              self._event_label] == self._event_trigger].index
+                                       self._event_label] == self._event_trigger].index
 
-        if self._column_name is None and len(self.i.meta)>0:
+        if self._column_name is None and len(self.i.meta) > 0:
             self._column_name = self.i.meta["column_name"]
 
         if not target_index.empty:
