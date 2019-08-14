@@ -197,7 +197,8 @@ class IIRFilter(Node):
         o (Port): Default output, provides DataFrame.
 
     Args:
-        rate (float): Nominal sampling rate of the input data.
+        rate (float): Nominal sampling rate of the input data. If None, rate is get
+                        from the meta.
         columns (list|'all'): Columns to apply filter on. Default: `all`.
         order (int, optional): Filter order. Default: `None`.
         frequencies (list|None): Transition frequencies. Ignored when sos is given.
@@ -228,11 +229,11 @@ class IIRFilter(Node):
         based on a cascade of biquads filters.
 
         The filter is initialized to have a minimal step response, but needs a
-        'warmup' period for the filtering to be stable, leeding to small artifacts
+        'warm up' period for the filtering to be stable, leading to small artifacts
         on the first few chunks.
 
         The IIR filter is faster than the FIR filter and delays the signal less
-        but this delay is not constant and the stability not guarenteed.
+        but this delay is not constant and the stability not  ensured.
 
     References:
 
@@ -313,6 +314,60 @@ class IIRFilter(Node):
                 raise ValueError(f'sos must have shape (n_sections, 6), received {self._sos_custom.shape} instead. ')
 
 
+class IIRLineFilter(Node):
+    """ Apply multiple Notch IIR Filter in series.
+
+        Attributes:
+        i (Port): Default input, expects DataFrame.
+        o (Port): Default output, provides DataFrame.
+
+    Args:
+        rate (float): Nominal sampling rate of the input data. If None, rate is get
+                  from the meta.
+        edges_center: List with center of the filters.
+        orders (tuple|int|None): List with orders of the filters.
+                            If int, the same order will be used for all filters.
+                            If None, order 2 will be used for all filters.
+        edges_width: List with orders of the filters.
+                     If int, the same order will be used for all filters.
+                     If None, width of 3 (Hz) will be used for all filters.
+
+    """
+
+    def __init__(self, rate=None, edges_center=(50, 60, 100, 120), orders=(2, 1, 1, 1), edges_width=(3, 3, 3, 3)):
+
+        super().__init__()
+
+        orders = orders or 2
+        edges_width = edges_width or 3
+
+        if isinstance(orders, int):
+            orders = [orders] * len(edges_center)
+
+        if isinstance(edges_width, int):
+            edges_width = [edges_width] * len(edges_center)
+
+        filter_type = 'bandstop'
+        self._nodes = []
+        for edge_center, edge_width, order in zip(edges_center, edges_width, orders):
+            frequencies = [edge_center - edge_width, edge_center + edge_width]
+            self._nodes.append(IIRFilter(rate=rate, order=order, frequencies=frequencies, filter_type=filter_type))
+
+    def update(self):
+
+        # When we have not received data, there is nothing to do
+        if not self.i.ready():
+            return
+        # At this point, we are sure that we have some data to process
+        # copy the meta
+        self.o.meta = self.i.meta
+        # apply each filter in series
+        for node in self._nodes:
+            node.i.data = self.o.data
+            node.update()
+            self.o.data = node.o.data
+
+
 class FIRFilter(Node):
     """Apply FIR filter to signal.
 
@@ -336,7 +391,8 @@ class FIRFilter(Node):
         o (Port): Default output, provides DataFrame and meta.
 
     Args:
-        rate (float): Nominal sampling rate of the input data.
+        rate (float): Nominal sampling rate of the input data. If None, rate is get
+                      from the meta.
         columns (list|'all', optional): Columns to apply filter on. Default: `all`.
         order (int): Filter order.
         frequencies (list): Transition frequencies.
@@ -356,8 +412,8 @@ class FIRFilter(Node):
         * ``freqs`` = `[6000, 6100]`
         * ``mode`` = `'lowpass'`
 
-        The FIR is a linear phase filter, so it allows one to correct for the i
-        ntroduced delay. Here, we retrieve the input sinus of period 1kHz.
+        The FIR is a linear phase filter, so it allows one to correct for the
+        introduced delay. Here, we retrieve the input sinus of period 1kHz.
         We plot the input signal, the output signal, the corresponding offline
         filtering and the output signal after delay correction.
 
