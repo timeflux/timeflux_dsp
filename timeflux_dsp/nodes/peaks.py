@@ -21,6 +21,15 @@ class LocalDetect(Node):
         i (Port): Default input, expects DataFrame.
         o (Port): Events output, provides DataFrame.
 
+    Args:
+        delta (float): Threshold for peak/valley matching in amplitude. This can be seen as the minimum significant
+                    change enough to detect a peak/valley.
+        tol (float): Tolerence for peak/valley matching, in seconds. This can be seen as the minimum time difference
+                    between two peaks/valleys.
+        reset (float): Reset threshold, in seconds.
+                    This can be seen as the maximum duration of plausible transitions between peaks and valleys.
+                    Default: None.
+
     Example:
        .. literalinclude:: /../../timeflux_dsp/test/graphs/droprows.yaml
            :language: yaml
@@ -49,16 +58,20 @@ class LocalDetect(Node):
 
     Notes:
 
-        This peak detection is considered real-time since it does not require buffering the data. However, the detection method necessarily involve a lag between the actual peak and its detection.
+        This peak detection is considered real-time since it does not require buffering the data. However, the detection
+        method necessarily involve a lag between the actual peak and its detection.
         Indeed, the internal state of the node is either "looking for a peak" or "looking for a valley".
 
-        - If the node is "looking for a peak", it means it computes local maxima until the signal drops significantly (ie. more than ``delta``)
-        - If the node is "looking for a valley", it means it computes local minima until the signal rises significantly (ie. more than ``delta``)
+        - If the node is "looking for a peak", it means it computes local maxima
+            until the signal drops significantly (ie. more than ``delta``)
+        - If the node is "looking for a valley", it means it computes local minima
+        until the signal rises significantly (ie. more than ``delta``)
 
         The "last local extrema" is set to a peak (resp. valley) as soon as the signal drops (resp. rises) significantly.
         Hence, there is an intrinsic lag in the detection, that is directly linked to parameter ``delta``.
 
-        Hence, by decreasing delta, we minimize the lag. But if delta is too small, we'll suffer from false positive detection, unless ``tol`` is tuned to avoid too closed detections.
+        Hence, by decreasing delta, we minimize the lag. But if delta is too small,
+        we'll suffer from false positive detection, unless ``tol`` is tuned to avoid too closed detections.
         The parameters should be tuned depending on the nature of the data, ie. their dynamic, quality, shapes.
 
         See the illustration above:
@@ -78,17 +91,8 @@ class LocalDetect(Node):
     """
 
     def __init__(self, delta, tol, reset=None):
-        """
-        Args:
-            delta (float): Threshold for peak/valley matching in amplitude. This can be seen as the minimum significant
-                        change enough to detect a peak/valley.
-            tol (float): Tolerence for peak/valley matching, in seconds. This can be seen as the minimum time difference
-                        between two peaks/valleys.
-            reset (float): Reset threshold, in seconds.
-                        This can be seen as the maximum duration of plausible transitions between peaks and valleys.
-                        Default: None.
-        """
 
+        super().__init__()
         self._delta = delta  # Peak threshold
         self._tol = tol  # Tolerence for peak matching, in seconds. This can be seen as the minimum time difference
         self._reset_states()
@@ -96,6 +100,7 @@ class LocalDetect(Node):
         self._reset = reset
 
     def _reset_states(self):
+
         """Reset peak detection internal state."""
         self._mxv = -np.Inf  # local max value
         self._mnv = np.Inf  # local min value
@@ -143,6 +148,7 @@ class LocalDetect(Node):
 
     def _on_sample(self, value, timestamp):
         """Peak detection"""
+
         if self._last_peak is None:
             self._last_peak = timestamp
         if self._last_valley is None:
@@ -180,13 +186,19 @@ class LocalDetect(Node):
 class RollingDetect(Node):
     """ Detect peaks and valleys on a rolling window of analysis in  1D signal
     This node uses a buffer to compute local extrema and detect peaks in real time.
-    When a local extrema (peak or valley) is detected, an event is sent with the nature specified in the label column
-    ("peak"/"valley) and
+    When a local extrema (peak or valley) is detected, an event is sent with the
+    nature specified in the label column ("peak"/"valley) and
     the characteristics in the data column, giving:
 
     - **value**: Amplitude of the extrema.
     - **lag**: Time laps between the extrema and its detection.
     - **interval**: Duration between two extrema os same nature.
+
+    Args:
+        window (float): Window of analysis in seconds, on which local max/min is computed.
+        tol (float): Tolerance for peak/valley matching, in seconds.
+        This can be seen as the minimum time difference
+        between two peaks/valleys.
 
     Attributes:
         i (Port): Default input, expects DataFrame.
@@ -194,21 +206,16 @@ class RollingDetect(Node):
     """
 
     def __init__(self, window=0.5, tol=0.1):
-        """
-        Args:
-            window (float): Window of analysis in seconds, on which local max/min is computed.
-            tol (float): Tolerence for peak/valley matching, in seconds. This can be seen as the minimum time difference
-            between two peaks/valleys.
-        """
 
+        super().__init__()
         self._window = window  # Window of analysis
-        self._tol = tol  # Tolerence for peak matching, in seconds.
-        # This can be seen as the minimum time difference between two peaks
+        self._tol = tol  # Tolerance for peak matching, in seconds.
+        # (this can be seen as the minimum time difference between two peaks)
 
         self._reset_states()
 
     def _reset_states(self):
-        # Reset peak detection internal state.
+        """Reset peak detection internal state."""
 
         self._buffer = pd.DataFrame()
         # self._timestamps_buff = []  # np.zeros((2*self.n))
@@ -226,7 +233,7 @@ class RollingDetect(Node):
         self.o.meta = self.i.meta
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None or self.i.data.empty:
+        if not self.i.ready():
             return
 
         if self.i.data.shape[1] != 1:
@@ -258,9 +265,8 @@ class RollingDetect(Node):
 
                     self.o.data = pd.DataFrame(index=[peak],
                                                data=np.array([['peak'],
-                                                              [{'value': self.i.data.max()[0], 'lag': (
-                                                                      self.i.data.index[-1] -
-                                                                      peak).total_seconds(),
+                                                              [{'value': self.i.data.max()[0],
+                                                                'lag': (self.i.data.index[-1] - peak).total_seconds(),
                                                                 'interval': self._peak_interval.total_seconds(),
                                                                 'column_name': self.i.data.columns[0]}]]).T,
                                                columns=['label', 'data'])
@@ -274,9 +280,9 @@ class RollingDetect(Node):
 
                     self.o.data = pd.DataFrame(index=[valley],
                                                data=np.array([['valley'],
-                                                              [{'value': self.i.data.min()[0], 'lag': (
-                                                                      self.i.data.index[
-                                                                          -1] - self._last_valley).total_seconds(),
+                                                              [{'value': self.i.data.min()[0],
+                                                                'lag': (self.i.data.index[
+                                                                            -1] - self._last_valley).total_seconds(),
                                                                 'interval': self._valley_interval.total_seconds(),
                                                                 'column_name': self.i.data.columns[0]}]]).T,
                                                columns=['label', 'data'])
@@ -293,22 +299,22 @@ class Rate(Node):
         i (Port): Default input, expects DataFrame.
         o (Port): Default output, provides DataFrame.
 
+    Args:
+        event_trigger (string): The marker name.
+        event_label (string): The column to match for event_trigger.
     """
 
     def __init__(self, event_trigger='peak', event_label='label'):
-        """
-        Args:
-            event_trigger (string): The marker name.
-            event_label (string): The column to match for event_trigger.
-        """
 
+        super().__init__()
         self._event_trigger = event_trigger
         self._event_label = event_label
         self._column_name = None
         self._last = None
 
     def _reset_states(self):
-        # Reset peak detection internal state.
+        """Reset peak detection internal state."""
+
         self._last = None
 
     def update(self):
@@ -317,11 +323,10 @@ class Rate(Node):
         self.o.meta = self.i.meta
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None or self.i.data.empty:
+        if not self.i.ready():
             return
 
         # At this point, we are sure that we have some data to process
-
         self.o.data = None
 
         target_index = self.i.data[self.i.data[

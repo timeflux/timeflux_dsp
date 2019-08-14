@@ -1,11 +1,11 @@
 """This module contains nodes for spectral analysis with Timeflux."""
-import pytest
 
 import numpy as np
-from scipy.signal.spectral import fftpack
-from scipy.signal import welch
-from timeflux.core.node import Node
+import pandas as pd
 import xarray as xr
+from scipy.signal import welch
+from scipy.signal.spectral import fftpack
+from timeflux.core.node import Node
 
 
 class FFT(Node):
@@ -100,7 +100,7 @@ class FFT(Node):
         self.o = self.i
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None or self.i.data.empty:
+        if not self.i.ready():
             return
 
         # At this point, we are sure that we have some data to process
@@ -112,8 +112,6 @@ class FFT(Node):
             self.o.data = self.o.data.apply(lambda x: x.real)
             func = np.fft.rfft
         values = func(self.o.data.values.T, n=self._nfft).T
-        ## deprecated MultiIndex --> XArray
-        # self.o.data = pd.DataFrame(index = pd.MultiIndex.from_product([[self.o.data.index[-1]], self._freqs], names = ["times", "freqs"]), data = values, columns = self.o.data.columns)
         self.o.data = xr.DataArray(np.stack([values], 0),
                                    coords=[[self.o.data.index[-1]], self._freqs, self.o.data.columns],
                                    dims=['time', 'freq', 'space'])
@@ -166,10 +164,10 @@ class Welch(Node):
 
     """
 
-    def __init__(self, rate=1.0, **kwargs):
+    def __init__(self, rate=None, **kwargs):
         """
             Args:
-                rate (float): Nominal sampling rate of the input data.
+                rate (float|None): Nominal sampling rate of the input data.
                 kwargs:  Keyword arguments to pass to scipy.signal.welch function.
                                 You can specify: window, nperseg, noverlap, nfft, detrend, return_onesided and scaling.
         """
@@ -202,11 +200,10 @@ class Welch(Node):
         self.o = self.i
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None or self.i.data.empty:
+        if not self.i.ready():
             return
 
         # At this point, we are sure that we have some data to process
-
         # apply welch on the data:
         self._check_nfft()
         f, Pxx = welch(x=self.i.data, fs=self._rate, **self._kwargs, axis=0)
@@ -244,13 +241,13 @@ class Bands(Node):
         for band in bands.items():
             self._bands.append(dict(port=getattr(self, 'o_' + band[0]),
                                     slice=slice(band[1][0], band[1][1]),
-                                    meta={'Bands': {'range': band[1],
+                                    meta={'bands': {'range': band[1],
                                                     'relative': relative}}))
 
     def update(self):
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None:
+        if not self.i.ready():
             return
 
         # At this point, we are sure that we have some data to process

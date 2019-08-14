@@ -24,6 +24,14 @@ class DropRows(Node):
         i (Port): Default input, expects DataFrame.
         o (Port): Default output, provides DataFrame.
 
+    Args:
+        factor (int): Decimation factor. Only every k'th sample will be
+        transferred into the output.
+        method (str|None): Method to use to drop rows.
+                           If `None`, the values are transferred as it.
+                           If `mean` (resp. `median`), the mean (resp. median)
+                           of the samples is taken.
+
     Example:
        .. literalinclude:: /../../timeflux_dsp/test/graphs/droprows.yaml
            :language: yaml
@@ -50,17 +58,8 @@ class DropRows(Node):
     """
 
     def __init__(self, factor, method=None):
-        """
-         Args:
-            factor (int): Decimation factor. Only every k'th sample will be
-            transferred into the output.
-            method (str|None): Method to use to drop rows.
-                               If `None`, the values are transferred as it.
-                               If `mean` (resp. `median`), the mean (resp. median)
-                               of the samples is taken.
-        """
-        super().__init__()
 
+        super().__init__()
         self._factor = factor
         self._method = method
         self._previous = pd.DataFrame()
@@ -75,7 +74,7 @@ class DropRows(Node):
             self.o.meta['nominal_rate'] /= self._factor
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None or self.i.data.empty:
+        if not self.i.ready():
             return
 
         # At this point, we are sure that we have some data to process
@@ -111,18 +110,26 @@ class DropRows(Node):
 class Resample(Node):
     """Resample signal.
 
-    This node calls the `scipy.signal.resample` function to decimate the signal using Fourier method.
+    This node calls the `scipy.signal.resample` function to decimate the signal
+    using Fourier method.
 
     Attributes:
         i (Port): Default input, expects DataFrame.
         o (Port): Default output, provides DataFrame.
+
+    Args:
+        factor (int): Decimation factor. Only every k'th sample will be
+                      transferred into the output.
+        window (str|list|float): Specifies the window applied to the signal
+                      in the Fourier domain. Default: `None`.
 
     Example:
         .. literalinclude:: /../../timeflux_dsp/test/graphs/resample.yaml
            :language: yaml
 
     Notes:
-        This node should be used after a buffer to assure that the FFT window has always the same length.
+        This node should be used after a buffer to assure that the FFT window
+        has always the same length.
 
     References:
 
@@ -132,13 +139,7 @@ class Resample(Node):
 
     def __init__(self, factor, window=None):
 
-        """
-        Args:
-            factor (int): Decimation factor. Only every k'th sample will be transferred into the output.
-            window (str|list|float): Specifies the window applied to the signal in the Fourier domain. Default: `None`.
-        """
         super().__init__()
-
         self._factor = factor
         self._window = window
         self._previous = pd.DataFrame()
@@ -153,7 +154,7 @@ class Resample(Node):
             self.o.meta['nominal_rate'] /= self._factor
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None or self.i.data.empty:
+        if not self.i.ready():
             return
 
         # At this point, we are sure that we have some data to process
@@ -178,7 +179,8 @@ class Resample(Node):
 class IIRFilter(Node):
     """Apply IIR filter to signal.
 
-    If ``sos`` is `None`, this node uses adapted methods from mne.filters to design the filter coefficients based on the specified parameters.
+    If ``sos`` is `None`, this node uses adapted methods from mne.filters to
+    design the filter coefficients based on the specified parameters.
     If no transition band is given, default is to use :
 
     * l_trans_bandwidth =  min(max(l_freq * 0.25, 2), l_freq)
@@ -186,16 +188,31 @@ class IIRFilter(Node):
 
     Else, it uses ``sos`` as filter coefficients.
 
-    Once the kernel has been estimated, the node applies the filtering to each columns in ``columns`` using `scipy.signal.sosfilt` to generate the output given the input,
+    Once the kernel has been estimated, the node applies the filtering to each
+    columns in ``columns`` using `scipy.signal.sosfilt` to generate the output given the input,
     hence ensures continuity  across chunk boundaries,
 
     Attributes:
         i (Port): Default input, expects DataFrame.
         o (Port): Default output, provides DataFrame.
 
+    Args:
+        rate (float): Nominal sampling rate of the input data.
+        columns (list|'all'): Columns to apply filter on. Default: `all`.
+        order (int, optional): Filter order. Default: `None`.
+        frequencies (list|None): Transition frequencies. Ignored when sos is given.
+        filter_type (str|None): Filter mode (`lowpass`, `highpass`, `bandstop`, `bandpass`).
+                        Default: `bandpass`. Ignored when sos is given.
+        sos (array|None, optional) : Array of second-order sections (sos) representation,
+                                    must have shape (n_sections, 6). Default: `None`.
+        kwargs: keyword arguments to pass to the filter constructor
+
+
     Example:
-        In this example, we generate a signal that is the sum of two sinus with respective periods of 1kHz and 15kHz and respective amplitudes of 1 and 0.5.
-        We stream this signal using the IIRFilter node, designed for lowpass filtering at cutoff frequency 6kHz, order 3.
+        In this example, we generate a signal that is the sum of two sinus with
+        respective periods of 1kHz and 15kHz and respective amplitudes of 1 and 0.5.
+        We stream this signal using the IIRFilter node, designed for lowpass
+        filtering at cutoff frequency 6kHz, order 3.
 
         * ``order`` = `3`
         * ``freqs`` = `[6000]`
@@ -207,35 +224,27 @@ class IIRFilter(Node):
            :align: center
 
     Notes:
-        This node ensures continuity across chunk boundaries, using a recursive algorithm, based on a cascade of biquads filters.
+        This node ensures continuity across chunk boundaries, using a recursive algorithm,
+        based on a cascade of biquads filters.
 
-        The filter is initialized to have a minimal step response, but needs a 'warmup' period for the filtering to be stable, leeding to small artifacts on the first few chunks.
+        The filter is initialized to have a minimal step response, but needs a
+        'warmup' period for the filtering to be stable, leeding to small artifacts
+        on the first few chunks.
 
-        The IIR filter is faster than the FIR filter and delays the signal less but this delay is not constant and the stability not guarenteed.
+        The IIR filter is faster than the FIR filter and delays the signal less
+        but this delay is not constant and the stability not guarenteed.
 
     References:
 
             * `Real-Time IIR Digital Filters <http://www.eas.uccs.edu/~mwickert/ece5655/lecture_notes/ece5655_chap8.pdf>`_
             * `scipy.signal.sosfilt <https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.sosfilt.html>`_
 
-
     """
 
     def __init__(self, frequencies=None, columns='all', rate=None, filter_type='bandpass',
                  sos=None, **kwargs):
-        """
-        Args:
-            rate (float): Nominal sampling rate of the input data.
-            columns (list|'all'): Columns to apply filter on. Default: `all`.
-            order (int, optional): Filter order. Default: `None`.
-            frequencies (list|None): Transition frequencies. Ignored when sos is given.
-            filter_type (str|None): Filter mode (`lowpass`, `highpass`, `bandstop`, `bandpass`).
-                            Default: `bandpass`. Ignored when sos is given.
-            sos (array|None, optional) : Array of second-order sections (sos) representation, must have shape (n_sections, 6). Default: `None`.
-            kwargs: keyword arguments to pass to the filter constructor
-        """
-        super().__init__()
 
+        super().__init__()
         # self._order = order
         self._frequencies = frequencies
         self._filter_type = filter_type
@@ -252,13 +261,11 @@ class IIRFilter(Node):
 
     def update(self):
 
-        super().update()
-
         # copy the meta
         self.o = self.i
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None or self.i.data.empty:
+        if not self.i.ready():
             return
 
         # At this point, we are sure that we have some data to process
@@ -309,7 +316,8 @@ class IIRFilter(Node):
 class FIRFilter(Node):
     """Apply FIR filter to signal.
 
-    If ``coeffs`` is `None`, this node uses adapted methods from *mne.filters* to design the filter coefficients based on the specified parameters.
+    If ``coeffs`` is `None`, this node uses adapted methods from *mne.filters*
+    to design the filter coefficients based on the specified parameters.
     If no transition band is given, default is to use:
 
     * l_trans_bandwidth =  min(max(l_freq * 0.25, 2), l_freq)
@@ -317,7 +325,8 @@ class FIRFilter(Node):
 
     Else, it uses ``coeffs`` as filter coefficients.
 
-    It applies the filtering to each columns in ``columns`` using `scipy.signal.lfilter` to generate the output given the input,
+    It applies the filtering to each columns in ``columns`` using `scipy.signal.lfilter`
+    to generate the output given the input,
     hence ensures continuity  across chunk boundaries,
 
     The delay introduced is estimated and stored in the meta ``FIRFilter``, ``delay``.
@@ -326,40 +335,48 @@ class FIRFilter(Node):
         i (Port): Default input, expects DataFrame.
         o (Port): Default output, provides DataFrame and meta.
 
+    Args:
+        rate (float): Nominal sampling rate of the input data.
+        columns (list|'all', optional): Columns to apply filter on. Default: `all`.
+        order (int): Filter order.
+        frequencies (list): Transition frequencies.
+        filter_type (str, optional): Filter mode (`lowpass`, `highpass`, `bandstop`
+                                    or `bandpass`). Default: `bandpass`.
+        coeffs (array|None, optional): Custom coeffs to pass as ``b`` in `signal.filter`.
+                                        Default: `None`.
+        kwargs: keyword arguments to pass to the filter constructor (window, phase,... )
+
     Example:
-        In this exemple, we generate a signal that is the sum of two sinus with respective periods of 1kHz and 15kHz and respective amplitudes of 1 and 0.5.
-        We stream this signal using the FIRFilter node, designed for lowpass filtering at cutoff frequency 6kHz, order 20.
+        In this exemple, we generate a signal that is the sum of two sinus with
+        respective periods of 1kHz and 15kHz and respective amplitudes of 1 and 0.5.
+        We stream this signal using the FIRFilter node, designed for lowpass
+        filtering at cutoff frequency 6kHz, order 20.
 
         * ``order`` = `20`
         * ``freqs`` = `[6000, 6100]`
         * ``mode`` = `'lowpass'`
 
-        The FIR is a linear phase filter, so it allows one to correct for the introduced delay. Here, we retrieve the input sinus of period 1kHz.
-        We plot the input signal, the output signal, the corresponding offline filtering and the output signal after delay correction.
+        The FIR is a linear phase filter, so it allows one to correct for the i
+        ntroduced delay. Here, we retrieve the input sinus of period 1kHz.
+        We plot the input signal, the output signal, the corresponding offline
+        filtering and the output signal after delay correction.
 
         .. image:: /../../timeflux_dsp/doc/static/image/firfilter_io.png
            :align: center
 
     Notes:
-        The FIR filter ensures a linear phase response, but is computationnaly more costly than the IIR filter.
+        The FIR filter ensures a linear phase response, but is computationnaly
+        more costly than the IIR filter.
 
-        The filter is initialized to have a minimal step response, but needs a 'warmup' period for the filtering to be stable, leeding to small artifacts on the first few chunks.
+        The filter is initialized to have a minimal step response, but needs a
+        'warmup' period for the filtering to be stable, leeding to small artifacts
+         on the first few chunks.
 
     """
 
-    def __init__(self, frequencies, rate=None, columns='all', order=20, filter_type="bandpass",
+    def __init__(self, frequencies, rate=None, columns='all', order=20, filter_type='bandpass',
                  coeffs=None, **kwargs):
-        """
-         Args:
-            rate (float): Nominal sampling rate of the input data.
-            columns (list|'all', optional): Columns to apply filter on. Default: `all`.
-            order (int): Filter order.
-            frequencies (list): Transition frequencies.
-            filter_type (str, optional): Filter mode (`lowpass`, `highpass`, `bandstop` or `bandpass`). Default: `bandpass`.
-            coeffs (array|None, optional): Custom coeffs to pass as ``b`` in `signal.filter`. Default: `None`.
-            kwargs: keyword arguments to pass to the filter constructor (window, phasea,... )
 
-        """
         super().__init__()
         self._order = order
         self._frequencies = frequencies
@@ -378,12 +395,12 @@ class FIRFilter(Node):
         self._delay = None  # FIR filter delays
 
     def update(self):
-        super().update()
+
         # copy the meta
         self.o = self.i
 
         # When we have not received data, there is nothing to do
-        if self.i.data is None or self.i.data.empty:
+        if not self.i.ready():
             return
 
         # At this point, we are sure that we have some data to process
@@ -407,18 +424,24 @@ class FIRFilter(Node):
             if column not in self._zi:
                 zi0 = signal.lfilter_zi(self._coeffs, 1.0)
                 self._zi[column] = (zi0 * self.i.data[column].values[0])
-            port_o_col, self._zi[column] = signal.lfilter(b=self._coeffs, a=1.0, x=self.i.data[column].values.T,
+            port_o_col, self._zi[column] = signal.lfilter(b=self._coeffs,
+                                                          a=1.0,
+                                                          x=self.i.data[column].values.T,
                                                           zi=self._zi[column])
             self.o.meta.update({'FIRFilter': {'delay': self._delay}})
             self.o.data.loc[:, column] = port_o_col
 
     def _design_filter(self):
-        # Calculate an FIR filter kernel for a given sampling rate.
+        """Calculate an FIR filter kernel for a given sampling rate."""
+
         nyq = self._rate / 2.0
 
         if self._coeffs_custom is None:
-            edges, gains, _, _ = design_edges(frequencies=self._frequencies, nyq=nyq, mode=self._mode)
-            fir_coeffs = construct_fir_filter(self._rate, edges, gains, self._order, **self._kwargs)
+            edges, gains, _, _ = design_edges(frequencies=self._frequencies,
+                                              nyq=nyq,
+                                              mode=self._mode)
+            fir_coeffs = construct_fir_filter(self._rate, edges, gains, self._order,
+                                              **self._kwargs)
         else:
             fir_coeffs = self._coeffs_custom
         warmup = self._order - 1
@@ -427,8 +450,21 @@ class FIRFilter(Node):
 
 
 class Scaler(Node):
-    def __init__(self, method='StandardScaler', kwargs=None):
-        kwargs = kwargs or {}
+    """Apply a sklearn scaler
+
+    Attributes:
+        i (Port): Default input, expects DataFrame.
+        o (Port): Default output, provides DataFrame and meta.
+
+    Args:
+        method (str): Name of the scaler object (see https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing)
+        **kwargs: keyword arguments  to initialize the scaler.
+
+    """
+
+    def __init__(self, method='StandardScaler', **kwargs):
+
+        super().__init__()
         try:
             self._scaler = getattr(sklearn_preprocessing, method)(**kwargs)
         except AttributeError:
@@ -437,28 +473,34 @@ class Scaler(Node):
                                                                           method_name=method))
 
     def update(self):
-        if self.i.data is not None and not self.i.data.empty:
-            # scale the signal
-            self.o.data = pd.DataFrame(data=self._scaler.fit_transform(self.i.data.values), columns=self.i.data.columns)
-            if len(self.o.data) == len(self.i.data):
-                self.o.data.index = self.i.data.index
+
+        if not self.i.ready():
+            return
+
+        # scale the signal
+        self.o.data = pd.DataFrame(data=self._scaler.fit_transform(self.i.data.values),
+                                   columns=self.i.data.columns)
+        if len(self.o.data) == len(self.i.data):
+            self.o.data.index = self.i.data.index
 
 
 class AdaptiveScaler(Window):
-    """Scales the data adaptively.
-    This nodes transforms the data using a sklearn scaler object that is continously fitted on a rolling window.
+    """Scale the data adaptively.
+    This nodes transforms the data using a sklearn scaler object that is continuously fitted on a rolling window.
+
+    Attributes:
+        i (Port): Default input, expects DataFrame.
+        o (Port): Default output, provides DataFrame and meta.
+
+    Args:
+       length (float): The length of the window, in seconds.
+       method (str): Name of the scaler object (see https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing)
+       **kwargs : keyword arguments  to initialize the scaler.
     """
 
-    def __init__(self, length, method='StandardScaler', kwargs=None):
-        """
-            Args:
-               length (float): The length of the window, in seconds.
-               method (str): Name of the scaler object (see https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing)
-               kwargs : Keyword arguments  to initialize the scaler.
+    def __init__(self, length, method='StandardScaler', **kwargs):
 
-        """
         super(self.__class__, self).__init__(length=length, step=0)
-        kwargs = kwargs or {}
         self._has_fitted = False
         try:
             self._scaler = getattr(sklearn_preprocessing, method)(**kwargs)
@@ -467,6 +509,7 @@ class AdaptiveScaler(Window):
                 f'Module sklearn.preprocessing has no object {method}')
 
     def update(self):
+
         if not self.i.ready():
             return
 
