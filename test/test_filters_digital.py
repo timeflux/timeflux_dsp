@@ -1,14 +1,11 @@
 """Tests for iir and fir nodes"""
-from copy import copy
 
 import numpy as np
 import pandas as pd
+import pandas.util.testing as tm
 import pytest
-
 from timeflux.helpers.testing import ReadData, Looper
 from timeflux_dsp.nodes.filters import FIRFilter, IIRFilter
-
-import pandas.util.testing as tm
 
 
 @pytest.fixture(scope='module')

@@ -1,8 +1,7 @@
-"""Tests for nodes"""
-import pandas.util.testing as tm
-import pandas as pd
+"""Tests for nodes from timeflux_dsp.nodes.spectral"""
 import numpy as np
-
+import pandas as pd
+import pandas.util.testing as tm
 from timeflux_dsp.nodes.spectral import Welch
 
 # ------------------------------------------------------------------
