@@ -425,8 +425,8 @@ class FIRFilter(Node):
         more costly than the IIR filter.
 
         The filter is initialized to have a minimal step response, but needs a
-        'warmup' period for the filtering to be stable, leeding to small artifacts
-         on the first few chunks.
+        'warmup' period for the filtering to be stable, leeding to small artifacts on
+        the first few chunks.
 
     """
 

@@ -8,10 +8,11 @@ from timeflux.helpers.clock import now
 
 class LocalDetect(Node):
     """ Detect peaks and valleys in live 1D signal
+
     This node uses a simple algorithm to detect peaks in real time.
-    When a local extrema (peak or valley) is detected, an event is sent with the nature specified in the label column
-    ("peak"/"valley) and
-    the characteristics in the data column, giving:
+    When a local extrema (peak or valley) is detected, an event is sent with the nature
+    specified in the label column (``peak``/ ``valley``) andcthe characteristics in the
+    data column, giving:
 
     - **value**: Amplitude of the extrema.
     - **lag**: Time laps between the extrema and its detection.
@@ -54,8 +55,6 @@ class LocalDetect(Node):
             2018-11-19 11:06:40.761455675  valley  {'value': [-1.0549353361129759], 'lag': 0.048816963, 'interval': 0.810499984}
 
 
-
-
     Notes:
 
         This peak detection is considered real-time since it does not require buffering the data. However, the detection
@@ -65,7 +64,7 @@ class LocalDetect(Node):
         - If the node is "looking for a peak", it means it computes local maxima
             until the signal drops significantly (ie. more than ``delta``)
         - If the node is "looking for a valley", it means it computes local minima
-        until the signal rises significantly (ie. more than ``delta``)
+            until the signal rises significantly (ie. more than ``delta``)
 
         The "last local extrema" is set to a peak (resp. valley) as soon as the signal drops (resp. rises) significantly.
         Hence, there is an intrinsic lag in the detection, that is directly linked to parameter ``delta``.
@@ -85,9 +84,11 @@ class LocalDetect(Node):
         * `Matlab function <http://billauer.co.il/peakdet.html>`_
         * `Publication <https://www.ncbi.nlm.nih.gov/pubmed/27027672>`_
 
-    **To Do**:
+
+    **Todo**
 
         * allow for adaptive parametrization.
+
     """
 
     def __init__(self, delta, tol, reset=None):
