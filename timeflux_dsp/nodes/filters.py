@@ -359,8 +359,8 @@ class IIRLineFilter(Node):
         if not self.i.ready():
             return
         # At this point, we are sure that we have some data to process
-        # copy the meta
-        self.o.meta = self.i.meta
+        # initialize output port
+        self.o = self.i
         # apply each filter in series
         for node in self._nodes:
             node.i.data = self.o.data
