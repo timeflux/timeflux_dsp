@@ -4,8 +4,6 @@ import pandas as pd
 from timeflux.core.branch import Branch
 from timeflux.core.node import Node
 from timeflux.nodes.window import Window
-from neurokit.bio.bio_ecg import ecg_process
-import sklearn.externals.joblib  # Fix for bug on neurokit
 
 
 class Discretize(Node):
@@ -62,13 +60,19 @@ class ECGQuality(Window):
 
     Args:
         rate (float): Nominal sampling rate of the input data. If None, rate is get
-          from the meta.
-       length (float): The length of the window, in seconds.
-       step (float): The sliding step, in seconds.
+            from the meta.
+        length (float): The length of the window, in seconds.
+        step (float): The sliding step, in seconds.
 
     """
 
     def __init__(self, rate, length, step):
+
+        try:
+            from neurokit.bio.bio_ecg import ecg_process
+            import sklearn.externals.joblib  # Fix for bug on neurokit
+        except ModuleNotFoundError:
+            self.logger.error('Neurokit is not installed')
 
         self._rate = rate
         super().__init__(length=length, step=step)
