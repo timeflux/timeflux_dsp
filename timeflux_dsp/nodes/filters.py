@@ -481,11 +481,15 @@ class FIRFilter(Node):
                 zi0 = signal.lfilter_zi(self._coeffs, 1.0)
                 self._zi[column] = (zi0 * self.i.data[column].values[0])
             port_o_col, self._zi[column] = signal.lfilter(b=self._coeffs,
-                                                          a=1.0,
-                                                          x=self.i.data[column].values.T,
-                                                          zi=self._zi[column])
-            self.o.meta.update({'FIRFilter': {'delay': self._delay}})
+                                                         a=1.0,
+                                                         x=self.i.data[column].values.T,
+                                                         zi=self._zi[column])
+            #self.o.meta.update({'FIRFilter': {'delay': self._delay}})
             self.o.data.loc[:, column] = port_o_col
+            # update delay
+            delay = self.o.meta.get('delay') or 0.0
+            delay += self._delay
+            self.o.meta.update({'delay':  delay})
 
     def _design_filter(self):
         """Calculate an FIR filter kernel for a given sampling rate."""
@@ -579,6 +583,8 @@ class AdaptiveScaler(Window):
             self._has_fitted = True
             self.o.clear()
 
+        # copy meta
+        self.o.meta = self.i.meta
         # if the scaler has been fitted, transform the current data
         if self._has_fitted and self.i.ready():
             transformed_data = self._scaler.transform(self.i.data.values)
