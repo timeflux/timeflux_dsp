@@ -140,10 +140,12 @@ class LocalDetect(Node):
             if detected:
                 self.o.data = self.o.data.append(pd.DataFrame(index=[detected[0]],
                                                               data=np.array([[detected[1]],
-                                                                             [{'value': detected[2],
-                                                                               'lag': detected[3],
-                                                                               'interval': detected[4],
-                                                                               'column_name': column_name}]]).T,
+                                                                            [{'value': detected[2][0],
+                                                                            'lag': detected[3],
+                                                                            'interval': detected[4],
+                                                                            'column_name': column_name,
+                                                                            'now': str(timestamp),
+                                                                            'extremum_time': str(detected[0])}]]).T,
                                                               columns=['label', 'data']))
                 self.o.meta = {"column_name": column_name}
 
@@ -164,7 +166,6 @@ class LocalDetect(Node):
             self._mnt = timestamp
         if self._lfm:
             if value < self._mxv - self._delta:
-
                 _interval = (self._mxt - self._last_peak).total_seconds()
                 self._mnv = value
                 self._mnt = timestamp
@@ -269,7 +270,9 @@ class RollingDetect(Node):
                                                               [{'value': self.i.data.max()[0],
                                                                 'lag': (self.i.data.index[-1] - peak).total_seconds(),
                                                                 'interval': self._peak_interval.total_seconds(),
-                                                                'column_name': self.i.data.columns[0]}]]).T,
+                                                                'column_name': self.i.data.columns[0],
+                                                                'now': str(self.i.data.index[-1]),
+                                                                'extremum_time': str(peak)}]]).T,
                                                columns=['label', 'data'])
 
                     self._last_peak = peak
@@ -285,7 +288,9 @@ class RollingDetect(Node):
                                                                 'lag': (self.i.data.index[
                                                                             -1] - self._last_valley).total_seconds(),
                                                                 'interval': self._valley_interval.total_seconds(),
-                                                                'column_name': self.i.data.columns[0]}]]).T,
+                                                                'column_name': self.i.data.columns[0],
+                                                                'now': str(self.i.data.index[-1]),
+                                                                'extremum_time': str(valley)}]]).T,
                                                columns=['label', 'data'])
                     self._last_valley = valley
 
