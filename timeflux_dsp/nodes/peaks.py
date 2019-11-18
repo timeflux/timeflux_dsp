@@ -138,14 +138,13 @@ class LocalDetect(Node):
             detected = self._on_sample(value=value, timestamp=timestamp)
             # Append event
             if detected:
-                now = datetime.utcnow()
                 self.o.data = self.o.data.append(pd.DataFrame(index=[detected[0]],
                                                               data=np.array([[detected[1]],
                                                                             [{'value': detected[2][0],
                                                                             'lag': detected[3],
                                                                             'interval': detected[4],
                                                                             'column_name': column_name,
-                                                                            'now': str(now),
+                                                                            'now': str(now()),
                                                                             'extremum_time': str(detected[0])}]]).T,
                                                               columns=['label', 'data']))
                 self.o.meta = {"column_name": column_name}
@@ -265,14 +264,13 @@ class RollingDetect(Node):
                 peak = self.i.data.idxmax()[0]
                 if (peak - self._last_peak).total_seconds() > self._tol:
                     self._peak_interval = peak - self._last_peak
-                    now = datetime.utcnow()
                     self.o.data = pd.DataFrame(index=[peak],
                                                data=np.array([['peak'],
                                                               [{'value': self.i.data.max()[0],
                                                                 'lag': (self.i.data.index[-1] - peak).total_seconds(),
                                                                 'interval': self._peak_interval.total_seconds(),
                                                                 'column_name': self.i.data.columns[0],
-                                                                'now': str(now),
+                                                                'now': str(now()),
                                                                 'extremum_time': str(peak)}]]).T,
                                                columns=['label', 'data'])
 
@@ -282,14 +280,13 @@ class RollingDetect(Node):
                 valley = self.i.data.idxmin()[0]
                 if (valley - self._last_valley).total_seconds() > self._tol:
                     self._valley_interval = valley - self._last_valley
-                    now = datetime.utcnow()
                     self.o.data = pd.DataFrame(index=[valley],
                                                data=np.array([['valley'],
                                                               [{'value': self.i.data.min()[0],
                                                                 'lag': (self.i.data.index[-1] - self._last_valley).total_seconds(),
                                                                 'interval': self._valley_interval.total_seconds(),
                                                                 'column_name': self.i.data.columns[0],
-                                                                'now': str(now),
+                                                                'now': str(now()),
                                                                 'extremum_time': str(valley)}]]).T,
                                                columns=['label', 'data'])
                     self._last_valley = valley
