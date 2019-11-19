@@ -555,13 +555,15 @@ class AdaptiveScaler(Window):
     Args:
        length (float): The length of the window, in seconds.
        method (str): Name of the scaler object (see https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing)
+       dropna (bool): Whether or not NaN should be dropped before fitting the estimator. Default to False.
        **kwargs : keyword arguments  to initialize the scaler.
     """
 
-    def __init__(self, length, method='StandardScaler', **kwargs):
+    def __init__(self, length, method='StandardScaler', dropna=False, **kwargs):
 
         super(self.__class__, self).__init__(length=length, step=0)
         self._has_fitted = False
+        self._dropna  = dropna
         try:
             self._scaler = getattr(sklearn_preprocessing, method)(**kwargs)
         except AttributeError:
@@ -577,8 +579,10 @@ class AdaptiveScaler(Window):
         super(self.__class__, self).update()
 
         # if the window output is ready, fit the scaler with its values
-        if self.o.ready() and not self.o.data.dropna().empty:
-            x = self.o.data.dropna().values
+        if self.o.ready():
+            x = self.o.data.values
+            if self._dropna:
+                x = x[~np.isnan(x)]
             self._scaler.fit(x)
             self._has_fitted = True
             self.o.clear()
