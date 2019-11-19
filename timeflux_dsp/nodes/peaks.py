@@ -144,8 +144,9 @@ class LocalDetect(Node):
                                                                             'lag': detected[3],
                                                                             'interval': detected[4],
                                                                             'column_name': column_name,
-                                                                            'now': str(now()),
-                                                                            'extremum_time': str(detected[0])}]]).T,
+                                                                            'detection_time': str(self.i.data.index[-1]),
+                                                                              'now': str(now()),
+                                                                              'extremum_time': str(detected[0])}]]).T,
                                                               columns=['label', 'data']))
                 self.o.meta = {"column_name": column_name}
 
