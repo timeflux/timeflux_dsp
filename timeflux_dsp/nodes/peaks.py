@@ -138,7 +138,7 @@ class LocalDetect(Node):
             detected = self._on_sample(value=value, timestamp=timestamp)
             # Append event
             if detected:
-                self.o.data = self.o.data.append(pd.DataFrame(index=[detected[0]],
+                self.o.data = self.o.data.append(pd.DataFrame(index=[self.i.data.index[-1]], #detected[0]
                                                               data=np.array([[detected[1]],
                                                                             [{'value': detected[2][0],
                                                                             'lag': detected[3],
