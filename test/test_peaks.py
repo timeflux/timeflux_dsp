@@ -19,9 +19,10 @@ def ppg_generator():
     return ppg_generator
 
 
-def assert_dict_almost_equal(dict1, dict2, decimal=7):
-    np.testing.assert_array_equal(list(dict1.keys()), list(dict2.keys()))
-    for k in dict1:
+def assert_dict_almost_equal(dict1, dict2, decimal=7, keys=None):
+    if keys is None:
+        np.testing.assert_array_equal(list(dict1.keys()), list(dict2.keys()))
+    for k in keys or dict1:
         if isinstance(dict1[k], Number):
             np.testing.assert_almost_equal(dict1[k], dict2[k], decimal=decimal)
 
@@ -58,18 +59,22 @@ def test_localdetect_on_gaussians():
     # loop across chunks
     looper = Looper(data_gaussians, node)
     cascade_output, _ = looper.run(chunk_size=5)
+    estimation_times = [pd.Timestamp(event['extremum_time']) for event in
+                        cascade_output[cascade_output.label == 'peak'].data.values]
 
-    pd.testing.assert_index_equal(peak_times,
-                                  cascade_output[cascade_output.label == 'peak'].index)
+    assert estimation_times == list(peak_times)
+
     data_peaks = pd.concat(
-        [pd.DataFrame(meta) for meta in cascade_output[cascade_output.label == 'peak'].data.values],
+        [pd.DataFrame(meta, index=[pd.Timestamp(meta['extremum_time'])]) for meta in
+         cascade_output[cascade_output.label == 'peak'].data.values],
         ignore_index=True)
 
     expected_peaks = pd.DataFrame(dict(column_name=['A', 'A'],
                                        value=[1.0, 1.0],
                                        interval=intervals,
                                        lag=lags))
-    pd.testing.assert_frame_equal(data_peaks, expected_peaks, check_like=True)
+    pd.testing.assert_frame_equal(data_peaks.drop(['now', 'extremum_time', 'detection_time'], axis=1), expected_peaks,
+                                  check_like=True)
 
 
 def test_localdetect_on_ppg(ppg_generator):
@@ -80,12 +85,13 @@ def test_localdetect_on_ppg(ppg_generator):
     looper = Looper(ppg_generator, node)
     cascade_output, _ = looper.run(chunk_size=5)
 
-    expected_index = pd.DatetimeIndex(['2018-11-19 11:06:39.620900',
+    expected_extremum_times = ['2018-11-19 11:06:39.620900',
                                        '2018-11-19 11:06:39.794709043',
                                        '2018-11-19 11:06:40.605209027',
                                        '2018-11-19 11:06:40.761455675',
                                        '2018-11-19 11:06:41.560254261',
-                                       '2018-11-19 11:06:41.714533810'], dtype='datetime64[ns]', freq=None)
+                                       '2018-11-19 11:06:41.714533810']
+    actual_extremum_times = [data['extremum_time'] for data in cascade_output.data.values]
     expected_labels = ['peak', 'valley'] * 3
     expected_data_peak = {'value': np.array([1.00546074]),
                           'lag': 0.064445281,
@@ -96,10 +102,12 @@ def test_localdetect_on_ppg(ppg_generator):
                             'interval': 0.654236268,
                             'column_name': 'PPG'}
 
-    pd.testing.assert_index_equal(expected_index, cascade_output.index)
+    assert expected_extremum_times == actual_extremum_times
     np.testing.assert_array_equal(expected_labels, cascade_output.label.values)
-    assert_dict_almost_equal(expected_data_peak, cascade_output.data.values[0])
-    assert_dict_almost_equal(expected_data_valley, cascade_output.data.values[1])
+    assert_dict_almost_equal(expected_data_peak, cascade_output.data.values[0],
+                             keys=['value', 'lag', 'interval', 'column_name'])
+    assert_dict_almost_equal(expected_data_valley, cascade_output.data.values[1],
+                             keys=['value', 'lag', 'interval', 'column_name'])
 
 
 def test_rollingdetect(ppg_generator):
@@ -125,5 +133,7 @@ def test_rollingdetect(ppg_generator):
                             'column_name': 'PPG'}
     pd.testing.assert_index_equal(expected_index, cascade_output.index)
     np.testing.assert_array_equal(expected_labels, cascade_output.label.values)
-    assert_dict_almost_equal(expected_data_peak, cascade_output.data.values[0])
-    assert_dict_almost_equal(expected_data_valley, cascade_output.data.values[1])
+    assert_dict_almost_equal(expected_data_peak, cascade_output.data.values[0], keys=['value', 'lag', 'interval', 'column_name'])
+    assert_dict_almost_equal(expected_data_valley, cascade_output.data.values[1], keys=['value', 'lag', 'interval', 'column_name'])
+
+
