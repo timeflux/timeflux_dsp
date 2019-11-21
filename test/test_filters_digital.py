@@ -119,7 +119,7 @@ def test_cascade_firfilter(generator):
     node_fir.update()
     continuous_output = node_fir.o.data
 
-    delay = cascade_meta[0]['FIRFilter']['delay']
+    delay = cascade_meta[0]['delay']
 
     # assert filters coeffs are correct
     np.testing.assert_array_almost_equal(node_fir._coeffs, expected_coeffs)
