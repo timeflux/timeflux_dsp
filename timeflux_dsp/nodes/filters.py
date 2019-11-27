@@ -3,11 +3,11 @@
 import numpy as np
 import pandas as pd
 from scipy import signal
-import sklearn.preprocessing as sklearn_preprocessing
 from timeflux.core.node import Node
 from timeflux.nodes.window import Window
 
 from timeflux_dsp.utils.filters import construct_fir_filter, construct_iir_filter, design_edges
+from timeflux_dsp.utils.import_helpers import make_object
 
 
 class DropRows(Node):
@@ -481,15 +481,15 @@ class FIRFilter(Node):
                 zi0 = signal.lfilter_zi(self._coeffs, 1.0)
                 self._zi[column] = (zi0 * self.i.data[column].values[0])
             port_o_col, self._zi[column] = signal.lfilter(b=self._coeffs,
-                                                         a=1.0,
-                                                         x=self.i.data[column].values.T,
-                                                         zi=self._zi[column])
-            #self.o.meta.update({'FIRFilter': {'delay': self._delay}})
+                                                          a=1.0,
+                                                          x=self.i.data[column].values.T,
+                                                          zi=self._zi[column])
+            # self.o.meta.update({'FIRFilter': {'delay': self._delay}})
             self.o.data.loc[:, column] = port_o_col
             # update delay
             delay = self.o.meta.get('delay') or 0.0
             delay += self._delay
-            self.o.meta.update({'delay':  delay})
+            self.o.meta.update({'delay': delay})
 
     def _design_filter(self):
         """Calculate an FIR filter kernel for a given sampling rate."""
@@ -522,14 +522,14 @@ class Scaler(Node):
 
     """
 
-    def __init__(self, method='StandardScaler', **kwargs):
+    def __init__(self, method='sklearn.preprocessing.StandardScaler', **kwargs):
 
         super().__init__()
         try:
-            self._scaler = getattr(sklearn_preprocessing, method)(**kwargs)
+            self._scaler = make_object(method, kwargs)
         except AttributeError:
             raise ValueError(
-                'Module {module_name} has no object {method_name}'.format(module_name='sklearn.preprocessing',
+                'Module {module_name} has no object {method_name}'.format(module_name=module,
                                                                           method_name=method))
 
     def update(self):
@@ -559,13 +559,14 @@ class AdaptiveScaler(Window):
        **kwargs : keyword arguments  to initialize the scaler.
     """
 
-    def __init__(self, length, method='StandardScaler', dropna=False, **kwargs):
+    def __init__(self, length, method='sklearn.preprocessing.StandardScaler', dropna=False, **kwargs):
 
         super(self.__class__, self).__init__(length=length, step=0)
         self._has_fitted = False
-        self._dropna  = dropna
+        self._dropna = dropna
         try:
-            self._scaler = getattr(sklearn_preprocessing, method)(**kwargs)
+            self._scaler = make_object(method, kwargs)
+            # self._scaler = getattr(sklearn_preprocessing, method)(**kwargs)
         except AttributeError:
             raise ValueError(
                 f'Module sklearn.preprocessing has no object {method}')
