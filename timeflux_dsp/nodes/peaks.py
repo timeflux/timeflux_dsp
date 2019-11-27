@@ -4,6 +4,8 @@ import pandas as pd
 from timeflux.core.io import Port
 from timeflux.core.node import Node
 from timeflux.helpers.clock import now
+from itertools import islice
+from collections import deque
 
 
 class LocalDetect(Node):
@@ -138,15 +140,16 @@ class LocalDetect(Node):
             detected = self._on_sample(value=value, timestamp=timestamp)
             # Append event
             if detected:
-                self.o.data = self.o.data.append(pd.DataFrame(index=[self.i.data.index[-1]], #detected[0]
+                self.o.data = self.o.data.append(pd.DataFrame(index=[self.i.data.index[-1]],  # detected[0]
                                                               data=np.array([[detected[1]],
-                                                                            [{'value': detected[2][0],
-                                                                            'lag': detected[3],
-                                                                            'interval': detected[4],
-                                                                            'column_name': column_name,
-                                                                            'detection_time': str(self.i.data.index[-1]),
-                                                                              'now': str(now()),
-                                                                              'extremum_time': str(detected[0])}]]).T,
+                                                                             [{'value': detected[2][0],
+                                                                               'lag': detected[3],
+                                                                               'interval': detected[4],
+                                                                               'column_name': column_name,
+                                                                               'detection_time': str(
+                                                                                   self.i.data.index[-1]),
+                                                                               'now': str(now()),
+                                                                               'extremum_time': str(detected[0])}]]).T,
                                                               columns=['label', 'data']))
                 self.o.meta = {"column_name": column_name}
 
@@ -208,27 +211,31 @@ class RollingDetect(Node):
         o (Port): Events output, provides DataFrame.
     """
 
-    def __init__(self, window=0.5, tol=0.1):
+    def __init__(self, length=0.5, tol=0.1, rate=None):
 
         super().__init__()
-        self._window = window  # Window of analysis
+        self._length = length  # Window of analysis
         self._tol = tol  # Tolerance for peak matching, in seconds.
+        self._rate = rate  # Signal rate. TODO: this should be in the meta
+        self._n = int(self._rate * self._length)
         # (this can be seen as the minimum time difference between two peaks)
 
+        self._column = None
         self._reset_states()
 
     def _reset_states(self):
         """Reset peak detection internal state."""
 
-        self._buffer = pd.DataFrame()
-        # self._timestamps_buff = []  # np.zeros((2*self.n))
+        self._values_buffer = deque(maxlen=2 * self._n)
+        self._timestamps_buffer = deque(maxlen=2 * self._n)
+
         self._last_peak = None
         self._last_valley = None
 
-        self._peak_interval = timedelta(seconds=1)
-        self._valley_interval = timedelta(seconds=1)
+        # self._peak_interval = timedelta(seconds=1)
+        # self._valley_interval = timedelta(seconds=1)
 
-        self._warmed_up = False
+        self._ready = False
 
     def update(self):
 
@@ -238,60 +245,64 @@ class RollingDetect(Node):
         # When we have not received data, there is nothing to do
         if not self.i.ready():
             return
-
+        # # At this point, we are sure that we have some data to process
         if self.i.data.shape[1] != 1:
             self.logger.warning(f'Peak detection expects data with one column, received '
                                 f'{self.i.data.shape[1]}. Considering the first one. ')
             self.i.data = self.i.data.take([0], axis=1)
 
-        self.o.meta = {'column_name': self.i.data.columns[0]}
+        self._last = self.i.data.index[-1]
+        if not self._ready:
+            self._column = self.i.data.columns[0]
+            # if self._last_peak is None:
+            self._last_peak = self._last_valley = self.i.data.index[0]
+            self._values_buffer += [0] * 2 * self._n
+            self._timestamps_buffer += [self.i.data.index[0]] * 2 * self._n
+            self._ready = True
+        self.o.meta = {'column_name': self._column}
 
-        # At this point, we are sure that we have some data to process
-        if not self._warmed_up:
-            if self._last_peak is None: self._last_peak = self.i.data.index[0]
-            if self._last_valley is None: self._last_valley = self.i.data.index[0]
-            self._buffer = pd.concat([self._buffer, self.i.data], axis=0)
-            if (self._buffer.index[-1] - self._buffer.index[0]).total_seconds() > 3 * self._window:
-                self._warmed_up = True
-        else:
-            self.o.data = None
-            # append data to buffer
-            self._buffer = pd.concat([self._buffer, self.i.data], axis=0)
-            # throw out old samples
-            self._buffer = self._buffer.loc[self._buffer.index[-1] - timedelta(seconds=self._window):]
-            # iterates over each sample
-            # this is actually equivalent to the local max function of scipy
-            if self.i.data.max()[0] == self._buffer.max()[0]:
-                peak = self.i.data.idxmax()[0]
-                if (peak - self._last_peak).total_seconds() > self._tol:
-                    self._peak_interval = peak - self._last_peak
-                    self.o.data = pd.DataFrame(index=[peak],
-                                               data=np.array([['peak'],
-                                                              [{'value': self.i.data.max()[0],
-                                                                'lag': (self.i.data.index[-1] - peak).total_seconds(),
-                                                                'interval': self._peak_interval.total_seconds(),
-                                                                'column_name': self.i.data.columns[0],
-                                                                'now': str(now()),
-                                                                'extremum_time': str(peak)}]]).T,
-                                               columns=['label', 'data'])
+        self.o.data = pd.DataFrame()
 
-                    self._last_peak = peak
+        for (value, timestamp) in zip(self.i.data.values, self.i.data.index):
+            # Peak detection
+            detected = self._on_sample(value=value, timestamp=timestamp)
+            if detected:
+                self.o.data = self.o.data.append(pd.DataFrame(index=[detected[0]],
+                                                              data=np.array([[detected[1]],
+                                                                             [{'value': detected[2],
+                                                                               'lag': detected[3],
+                                                                               'interval': detected[4],
+                                                                               'column_name': self._column,
+                                                                               'detection_time': str(self._last),
+                                                                               'now': str(now()),
+                                                                               'extremum_time': str(detected[0])}]]).T,
+                                                              columns=['label', 'data']))
+                self.o.meta = {"column_name": self._column}
 
-            if self.i.data.min()[0] == self._buffer.min()[0]:
-                valley = self.i.data.idxmin()[0]
-                if (valley - self._last_valley).total_seconds() > self._tol:
-                    self._valley_interval = valley - self._last_valley
-                    self.o.data = pd.DataFrame(index=[valley],
-                                               data=np.array([['valley'],
-                                                              [{'value': self.i.data.min()[0],
-                                                                'lag': (self.i.data.index[-1] - self._last_valley).total_seconds(),
-                                                                'interval': self._valley_interval.total_seconds(),
-                                                                'column_name': self.i.data.columns[0],
-                                                                'now': str(now()),
-                                                                'extremum_time': str(valley)}]]).T,
-                                               columns=['label', 'data'])
-                    self._last_valley = valley
+    def _on_sample(self, value, timestamp):
+        """Peak detection"""
+        self._values_buffer.append(value)
+        self._timestamps_buffer.append(timestamp)
 
+        if self._values_buffer[self._n] == max(self._values_buffer):
+            peak = self._timestamps_buffer[self._n]
+            # peak candidate
+            _interval = (peak - self._last_peak).total_seconds()
+            if _interval > self._tol:
+                # peak detected
+                _lag = (self._last - peak).total_seconds()
+                self._last_peak = peak
+                return peak, 'peak', value, _lag, _interval
+        elif self._values_buffer[self._n] == min(self._values_buffer):
+            valley = self._timestamps_buffer[self._n]
+            # peak candidate
+            _interval = (valley - self._last_valley).total_seconds()
+            if _interval > self._tol:
+                # peak detected
+                _lag = (self._last - valley).total_seconds()
+                self._last_valley = valley
+                return valley, 'valley', value, _lag, _interval
+        return False
 
 class Rate(Node):
     """ Computes rate of an event given its label.
@@ -337,7 +348,7 @@ class Rate(Node):
                                        self._event_label] == self._event_trigger].index
 
         if self._column_name is None and len(self.i.meta) > 0:
-            self._column_name = self.i.meta["column_name"]
+            self._column_name = self.i.meta['column_name']
 
         if not target_index.empty:
 
