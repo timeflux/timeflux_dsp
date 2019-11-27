@@ -164,15 +164,17 @@ class Welch(Node):
 
     """
 
-    def __init__(self, rate=None, **kwargs):
+    def __init__(self, rate=None, closed='right', **kwargs):
         """
             Args:
                 rate (float|None): Nominal sampling rate of the input data.
+                closed (str): Make the index closed on the ‘right’, ‘left’ or 'center'.
                 kwargs:  Keyword arguments to pass to scipy.signal.welch function.
                                 You can specify: window, nperseg, noverlap, nfft, detrend, return_onesided and scaling.
         """
 
         self._rate = rate
+        self._closed = closed
         self._kwargs = kwargs
         self._set_default()
 
@@ -207,10 +209,17 @@ class Welch(Node):
         # apply welch on the data:
         self._check_nfft()
         f, Pxx = welch(x=self.i.data, fs=self._rate, **self._kwargs, axis=0)
+
+        if self._closed == 'left':
+            time = self.i.data.index[-1]
+        elif self._closed == 'center':
+            time = self.i.data.index.mean()
+        else: # right
+            time = self.i.data.index[-1]
         # f is the frequency axis and Pxx the average power of shape (Nfreqs x Nchanels)
         # we reshape Pxx to fit the ('time' x 'freq' x 'space') dimensions
         self.o.data = xr.DataArray(np.stack([Pxx], 0),
-                                   coords=[[self.i.data.index[-1]], f, self.i.data.columns],
+                                   coords=[[time], f, self.i.data.columns],
                                    dims=['time', 'frequency', 'space'])
 
 
@@ -238,10 +247,10 @@ class Bands(Node):
         bands = bands or {'delta': [1, 4], 'theta': [4, 8], 'alpha': [8, 12], 'beta': [12, 30]}
         self._relative = relative
         self._bands = []
-        for band in bands.items():
-            self._bands.append(dict(port=getattr(self, 'o_' + band[0]),
-                                    slice=slice(band[1][0], band[1][1]),
-                                    meta={'bands': {'range': band[1],
+        for band_name, band_range in bands.items():
+            self._bands.append(dict(port=getattr(self, 'o_' + band_name),
+                                    slice=slice(band_range[0], band_range[1]),
+                                    meta={'bands': {'range': band_range,
                                                     'relative': relative}}))
 
     def update(self):
@@ -253,9 +262,9 @@ class Bands(Node):
         # At this point, we are sure that we have some data to process
         for band in self._bands:
             # 1. select the Xarray on freq axis in the range, 2. average along freq axis
-            band_power = self.i.data.loc[{'frequency': band['slice']}].mean('frequency').values  # todo: sum
+            band_power = self.i.data.loc[{'frequency': band['slice']}].sum('frequency').values  # todo: sum
             if self._relative:
-                tot_power = self.i.data.mean('frequency').values
+                tot_power = self.i.data.sum('frequency').values
                 tot_power[tot_power == 0.0] = 1
                 band_power /= tot_power
 
