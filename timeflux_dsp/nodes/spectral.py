@@ -167,8 +167,8 @@ class Welch(Node):
     def __init__(self, rate=None, closed='right', **kwargs):
         """
             Args:
-                rate (float|None): Nominal sampling rate of the input data.
-                closed (str): Make the index closed on the ‘right’, ‘left’ or 'center'.
+                rate (float|None): Nominal sampling rate of the input data. If `None`, the rate will be taken from the input meta/
+                closed (str): Make the index closed on the `right`, `left` or `center`.
                 kwargs:  Keyword arguments to pass to scipy.signal.welch function.
                                 You can specify: window, nperseg, noverlap, nfft, detrend, return_onesided and scaling.
         """
@@ -205,10 +205,18 @@ class Welch(Node):
         if not self.i.ready():
             return
 
+        # Check rate
+        if self._rate:
+            rate = self._rate
+        elif 'rate' in self.i.meta:
+            rate = self.i.meta['rate']
+        else:
+            raise ValueError('The rate was neither explicitely defined nor found in the stream meta.')
+
         # At this point, we are sure that we have some data to process
         # apply welch on the data:
         self._check_nfft()
-        f, Pxx = welch(x=self.i.data, fs=self._rate, **self._kwargs, axis=0)
+        f, Pxx = welch(x=self.i.data, fs=rate, **self._kwargs, axis=0)
 
         if self._closed == 'left':
             time = self.i.data.index[-1]
