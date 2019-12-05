@@ -70,8 +70,8 @@ class DropRows(Node):
         self.o.meta = self.i.meta
 
         # if nominal rate is specified in the meta, update it.
-        if 'nominal_rate' in self.o.meta:
-            self.o.meta['nominal_rate'] /= self._factor
+        if 'rate' in self.o.meta:
+            self.o.meta['rate'] /= self._factor
 
         # When we have not received data, there is nothing to do
         if not self.i.ready():
@@ -150,8 +150,8 @@ class Resample(Node):
         self.o.meta = self.i.meta
 
         # if nominal rate is specified in the meta, update it.
-        if 'nominal_rate' in self.o.meta:
-            self.o.meta['nominal_rate'] /= self._factor
+        if 'rate' in self.o.meta:
+            self.o.meta['rate'] /= self._factor
 
         # When we have not received data, there is nothing to do
         if not self.i.ready():
@@ -276,7 +276,7 @@ class IIRFilter(Node):
         # set rate from the data if it is not yet given
         if self._rate is None:
             try:
-                self._rate = self.i.meta.pop('nominal_rate')
+                self._rate = self.i.meta.pop('rate')
                 self.logger.info(f'Nominal rate set to {self._rate}. ')
             except KeyError:
                 # If there is no rate in the meta, set rate to 1.0
@@ -466,7 +466,7 @@ class FIRFilter(Node):
         # set rate from the data if it is not yet given
         if self._rate is None:
             try:
-                self._rate = self.i.meta.pop('nominal_rate')
+                self._rate = self.i.meta.pop('rate')
                 self.logger.info(f'Nominal rate set to {self._rate}. ')
             except KeyError:
                 # If there is no rate in the meta, set rate to 1.0
@@ -529,8 +529,7 @@ class Scaler(Node):
             self._scaler = make_object(method, kwargs)
         except AttributeError:
             raise ValueError(
-                'Module {module_name} has no object {method_name}'.format(module_name=module,
-                                                                          method_name=method))
+                'Cannot make object from {method}'.format(method=method))
 
     def update(self):
 
@@ -566,7 +565,6 @@ class AdaptiveScaler(Window):
         self._dropna = dropna
         try:
             self._scaler = make_object(method, kwargs)
-            # self._scaler = getattr(sklearn_preprocessing, method)(**kwargs)
         except AttributeError:
             raise ValueError(
                 f'Module sklearn.preprocessing has no object {method}')
