@@ -1,3 +1,4 @@
+from neurokit import ecg_process
 import numpy as np
 import pandas as pd
 
