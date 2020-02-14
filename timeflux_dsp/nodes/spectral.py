@@ -221,7 +221,9 @@ class Welch(Node):
         if self._closed == 'left':
             time = self.i.data.index[-1]
         elif self._closed == 'center':
-            time = self.i.data.index.mean()
+            def middle(a):
+                return int(np.ceil(len(a) / 2)) - 1
+            time = self.i.data.index[middle(self.i.data)]
         else: # right
             time = self.i.data.index[-1]
         # f is the frequency axis and Pxx the average power of shape (Nfreqs x Nchanels)
