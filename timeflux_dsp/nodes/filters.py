@@ -3,9 +3,9 @@
 import numpy as np
 import pandas as pd
 from scipy import signal
+from timeflux.core.branch import Branch
 from timeflux.core.node import Node
 from timeflux.nodes.window import Window
-
 from timeflux_dsp.utils.filters import construct_fir_filter, construct_iir_filter, design_edges
 from timeflux_dsp.utils.import_helpers import make_object
 
@@ -275,14 +275,14 @@ class IIRFilter(Node):
 
         # set rate from the data if it is not yet given
         if self._rate is None:
-            try:
-                self._rate = self.i.meta.pop('rate')
-                self.logger.info(f'Nominal rate set to {self._rate}. ')
-            except KeyError:
+            self._rate = self.i.meta.get('rate', None)
+            if self._rate is None:
                 # If there is no rate in the meta, set rate to 1.0
                 self._rate = 1.0
                 self.logger.warning(f'Nominal rate not supplied, considering '
                                     f'1.0 Hz instead. ')
+            else:
+                self.logger.info(f'Nominal rate set to {self._rate}. ')
 
         data = []
 
@@ -465,14 +465,14 @@ class FIRFilter(Node):
 
         # set rate from the data if it is not yet given
         if self._rate is None:
-            try:
-                self._rate = self.i.meta.pop('rate')
-                self.logger.info(f'Nominal rate set to {self._rate}. ')
-            except KeyError:
+            self._rate = self.i.meta.get('rate', None)
+            if self._rate is None:
                 # If there is no rate in the meta, set rate to 1.0
                 self._rate = 1.0
                 self.logger.warning(f'Nominal rate not supplied, considering '
                                     f'1.0 Hz instead. ')
+            else:
+                self.logger.info(f'Nominal rate set to {self._rate}. ')
 
         self._coeffs, self._delay = self._design_filter()
 
@@ -594,3 +594,62 @@ class AdaptiveScaler(Window):
             self.o.data = pd.DataFrame(data=transformed_data,
                                        columns=self.i.data.columns,
                                        index=self.i.data.index)
+
+
+class FilterBank(Branch):
+    """ Apply multiple IIR Filters to the signal and stack the components horizontally
+        Attributes:
+        i (Port): Default input, expects DataFrame.
+        o (Port): Default output, provides DataFrame.
+    Args:
+        rate (float): Nominal sampling rate of the input data. If None, rate is get
+                  from the meta.
+        filters (dict|None): Define the iir filter to apply given its name and its params.
+    """
+
+    def __init__(self, filters, method='IIRFilter', rate=None, **kwargs):
+        super().__init__()
+        self._filters = filters
+
+        graph = {
+            'nodes': [],
+            'edges': []
+        }
+        graph['nodes'].append({
+            'id': 'stack',
+            'module': 'timeflux_dsp.nodes.helpers',
+            'class': 'Concat',
+        })
+
+        for filter_name, filter_params in self._filters.items():
+            filter_params.update({'rate': rate})
+            filter_params.update(kwargs)
+            iir = {
+                'id': filter_name,
+                'module': 'timeflux_dsp.nodes.filters',
+                'class': method,
+                'params': filter_params
+            }
+            rename_columns = {
+                'id': f'rename_{filter_name}',
+                'module': 'timeflux.nodes.axis',
+                'class': 'AddSuffix',
+                'params': {'suffix': f'_{filter_name}'}
+            }
+            graph['nodes'] += [iir, rename_columns]
+            graph['edges'] += [{'source': filter_name, 'target': f'rename_{filter_name}'},
+                               {'source': f'rename_{filter_name}', 'target': f'stack:{filter_name}'}]
+
+        self.load(graph)
+
+    def update(self):
+        # When we have not received data, there is nothing to do
+        if not self.i.ready():
+            return
+        # set the data in input of each filter
+        for filter_name in self._filters.keys():
+            self.set_port(filter_name, port_id='i', data=self.i.data, meta=self.i.meta)
+
+        self.run()
+
+        self.o = self.get_port('stack', port_id='o')
