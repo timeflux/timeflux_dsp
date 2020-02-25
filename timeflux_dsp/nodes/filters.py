@@ -199,7 +199,6 @@ class IIRFilter(Node):
     Args:
         rate (float): Nominal sampling rate of the input data. If None, rate is get
                         from the meta.
-        columns (list|'all'): Columns to apply filter on. Default: `all`.
         order (int, optional): Filter order. Default: `None`.
         frequencies (list|None): Transition frequencies. Ignored when sos is given.
         filter_type (str|None): Filter mode (`lowpass`, `highpass`, `bandstop`, `bandpass`).
@@ -242,8 +241,10 @@ class IIRFilter(Node):
 
     """
 
-    def __init__(self, frequencies=None, columns='all', rate=None, filter_type='bandpass',
-                 sos=None, **kwargs):
+    def __init__(self, frequencies=None,
+                       rate=None,
+                       filter_type='bandpass',
+                       sos=None, **kwargs):
 
         super().__init__()
         # self._order = order
@@ -255,10 +256,10 @@ class IIRFilter(Node):
                             stop_atten=50.0)
         self._kwargs.update(kwargs)
         self._rate = rate
-        self._zi = {}
+        self._zi = None
         self._sos = None
         self._sos_custom = sos
-        self._columns = columns if columns != 'all' else None
+        self._columns = None
 
     def update(self):
 
@@ -284,20 +285,15 @@ class IIRFilter(Node):
             else:
                 self.logger.info(f'Nominal rate set to {self._rate}. ')
 
-        data = []
-
         if self._sos is None:
             self._design_sos()
-
-        for col in self._columns:
-            if col not in self._zi:
-                zi0 = signal.sosfilt_zi(self._sos)
-                self._zi[col] = (zi0 * self.i.data[col].values[0])
-            port_o_col, self._zi[col] = signal.sosfilt(self._sos,
-                                                       self.i.data[col].values.T,
-                                                       zi=self._zi[col])
-            data.append(pd.DataFrame(data=port_o_col, columns=[col], index=self.i.data.index))
-        self.o.data = pd.concat(data, axis=1)
+        if self._zi is None:
+            zi0 = signal.sosfilt_zi(self._sos)
+            self._zi = np.stack([(zi0 * self.i.data.iloc[0, k_col]) for k_col in range(len(self._columns))], axis=1)
+        port_o, self._zi = signal.sosfilt(self._sos,
+                                    self.i.data.values.T,
+                                    zi=self._zi)
+        self.o.data = pd.DataFrame(port_o.T, columns=self._columns, index=self.i.data.index)
 
     def _design_sos(self):
 
