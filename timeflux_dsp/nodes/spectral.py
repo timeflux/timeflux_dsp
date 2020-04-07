@@ -69,8 +69,8 @@ class FFT(Node):
 
         self._fixed_rate = rate
         self._rate = rate
-        self._fixed_nfft = int(nfft)
-        self._nfft = nfft
+        self._nfft = None if nfft is None else int(nfft)
+        self._fixed_nfft = self._nfft
 
         self._interpolation = {
             'method': 'time',
