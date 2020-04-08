@@ -55,10 +55,10 @@ class FFT(Node):
 
     """
 
-    def __init__(self, rate=None, nfft=None, return_onesided=True, interpolation=True):
+    def __init__(self, rate=None, nfft=None, return_onesided=True):
         """
             Args:
-                fs (float): Nominal sampling rate of the input data.
+                rate (float): Nominal sampling rate of the input data.
                 nfft (int|None): Length of the Fourier transform. Default: length of the chunk.
                 return_onesided (bool): If `True`, return a one-sided spectrum for real data.
                                               If `False` return a two-sided spectrum.
@@ -70,36 +70,26 @@ class FFT(Node):
         self._fixed_rate = rate
         self._rate = rate
         self._nfft = None if nfft is None else int(nfft)
-        self._fixed_nfft = self._nfft
-
-        self._interpolation = {
-            'method': 'time',
-            'limit': 10,
-        }
-        if type(interpolation) is dict:
-            self._interpolate = True
-            self._interpolation = {**self._interpolation, **interpolation}
-        else:
-            self._interpolate = interpolation
 
         if return_onesided:
             self._sides = 'onesided'
         else:
             self._sides = 'twosided'
+
         if self._nfft is not None and self._rate is not None:
             self._set_freqs()
 
     def _check_nfft(self):
 
         # Check validity of nfft at first chunk
-        if self._fixed_nfft is None:
-            self.logger.debug("nfft := length of the chunk ")
+        if self._nfft is None:
+            self.logger.debug("nfft := length of the input chunk ")
             self._nfft = self.i.data.shape[0]
-            self._set_freqs()
-        elif self._fixed_nfft > self.i.data.shape[0]:
-            raise ValueError('nfft must be less than or equal to length of chunk.')
-        else:
-            self.o.data = self.o.data.tail(self._fixed_nfft)
+        elif self._nfft < self.i.data.shape[0]:
+            self.logger.debug("FFT truncated data with length {} to nfft {}".format(self.i.data.shape[0], self._nfft))
+            self.o.data = self.o.data.tail(self._nfft)
+        elif self._nfft > self.i.data.shape[0]:
+            raise ValueError('nfft must be less than or equal to length of input chunk.')
 
     def _set_freqs(self):
 
@@ -123,13 +113,12 @@ class FFT(Node):
             if 'rate' in self.i.meta:
                 self._rate = self.i.meta['rate']
             else:
+                self.logger.debug("FFT using default sampling rate of 1; you should specify the rate explicitly or by meta.")
                 self._rate = 1.0
         self.o.data = self.i.data
         self._check_nfft()
-
-        # FFT cannot handle NaNs and will return NaN if a single input value is NaN.
-        if self._interpolate:
-            self.o.data = self.o.data.interpolate(**self._interpolation)
+        if not hasattr(self, '._freqs'):
+            self._set_freqs()
 
         if self._sides == 'twosided':
             func = fftpack.fft
@@ -150,7 +139,7 @@ class Welch(Node):
 
         Example:
 
-        In this exemple, we simulate data with noisy sinus on three sensors (columns `a`, `b`, `c`):
+        In this example, we simulate data with noisy sinus on three sensors (columns `a`, `b`, `c`):
 
             * ``fs`` = `100.0`
             * ``nfft`` = `24`
