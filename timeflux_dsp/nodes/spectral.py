@@ -66,8 +66,6 @@ class FFT(Node):
                 nfft (int|None): Length of the Fourier transform. Default: length of the chunk.
                 return_onesided (bool): If `True`, return a one-sided spectrum for real data.
                                               If `False` return a two-sided spectrum.
-                                              (Note that for complex data, a two-sided spectrum is always returned.)
-                                              Default: `True`.
         """
 
         self._rate = rate
