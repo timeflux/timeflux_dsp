@@ -48,7 +48,11 @@ class FFT(Node):
               * space     (space) object 'A' 'B' 'C'
 
     Notes:
-       This node should be used after a buffer.
+       This node should be used after a Window of the appropriate length. For best performance, the window should provide
+       a fixed number of samples, and that number should be a power of 2 such as 64, 128, or 256.
+
+       The output from this node will be a complex number; to translate this into an amplitude you take it's magnitude
+       by passing it through an Expression node that uses the abs() function.
 
     References:
         * `scipy.fftpack <https://docs.scipy.org/doc/scipy/reference/fftpack.html>`_
@@ -64,17 +68,16 @@ class FFT(Node):
                                               If `False` return a two-sided spectrum.
                                               (Note that for complex data, a two-sided spectrum is always returned.)
                                               Default: `True`.
-                interpolation (bool|dict): How to interpolate NaN values in the input using Pandas interpolate.
         """
 
-        self._fixed_rate = rate
         self._rate = rate
         self._nfft = None if nfft is None else int(nfft)
 
-        if return_onesided:
-            self._sides = 'onesided'
+        self._onesided = return_onesided
+        if self._onesided:
+            self._fft = np.fft.rfft
         else:
-            self._sides = 'twosided'
+            self._fft = fftpack.fft
 
         if self._nfft is not None and self._rate is not None:
             self._set_freqs()
@@ -85,16 +88,14 @@ class FFT(Node):
         if self._nfft is None:
             self.logger.debug("nfft := length of the input chunk ")
             self._nfft = self.i.data.shape[0]
-        elif self._nfft < self.i.data.shape[0]:
-            self.logger.debug("FFT truncated data with length {} to nfft {}".format(self.i.data.shape[0], self._nfft))
-            self.o.data = self.o.data.tail(self._nfft)
-        elif self._nfft > self.i.data.shape[0]:
-            raise ValueError('nfft must be less than or equal to length of input chunk.')
+        elif self._nfft != self.i.data.shape[0]:
+            # np & scipy will pad/truncate the input as necessary, but this may not be desired.
+            self.logger.debug("FFT input chunk has length {} but nfft is {}".format(self.i.data.shape[0], self._nfft))
 
     def _set_freqs(self):
 
         # Set freqs indexes
-        if self._sides == 'onesided':
+        if self._onesided:
             self._freqs = np.fft.rfftfreq(self._nfft, 1 / self._rate)
         else:
             self._freqs = fftpack.fftfreq(self._nfft, 1 / self._rate)
@@ -120,11 +121,7 @@ class FFT(Node):
         if not hasattr(self, '._freqs'):
             self._set_freqs()
 
-        if self._sides == 'twosided':
-            func = fftpack.fft
-        else:
-            func = np.fft.rfft
-        values = func(self.o.data.values.T, n=self._nfft).T
+        values = self._fft(self.o.data.values.T, n=self._nfft).T
         self.o.data = xr.DataArray(np.stack([values], 0),
                                    coords=[[self.o.data.index[-1]], self._freqs, self.o.data.columns],
                                    dims=['time', 'frequency', 'space'])
@@ -206,7 +203,7 @@ class Welch(Node):
     def _check_nfft(self):
         # Check validity of nfft at first chunk
         if not all(i <= len(self.i.data) for i in [self._kwargs[k] for k in ['nfft', 'nperseg', 'noverlap']]):
-            raise ValueError('nfft, noverlap and nperseg must be greater than or equal to length of chunk.')
+            raise ValueError('nfft, noverlap and nperseg must be less than or equal to length of chunk.')
         else:
             self._kwargs.update({keyword: int(self._kwargs[keyword]) for keyword in ['nfft', 'nperseg', 'noverlap']})
 
@@ -257,20 +254,22 @@ class Bands(Node):
             o (Port): Default output, provides DataFrame.
             o_* (Port): Dynamic outputs, provide DataFrame.
 
+    Notes:
+        The output from this node may be a complex number; to translate this into an amplitude you can take it's magnitude
+        by passing it through an Expression node that uses the abs() function.
+
     """
 
-    def __init__(self, bands=None, relative=False, amplitude=True):
+    def __init__(self, bands=None, relative=False):
 
         """
         Args:
            bands (dict): Define the band to extract given its name and its range.
                          An output port will be created with the given names as suffix.
             relative (bool): Whether the bands values should be expressed as absolute values, or as a proportion of the sum of the whole spectrum. Default: False.
-            amplitude (bool): Whether to return the magnitude as a real number representing the amplitude or a complex number representing both amplitude and phase. Default: True.
         """
         bands = bands or {'delta': [1, 4], 'theta': [4, 8], 'alpha': [8, 12], 'beta': [12, 30]}
         self._relative = relative
-        self._amplitude = amplitude
         self._bands = []
         for band_name, band_range in bands.items():
             self._bands.append(dict(port=getattr(self, 'o_' + band_name),
@@ -294,6 +293,4 @@ class Bands(Node):
                 band_power /= tot_power
             band['port'].data = pd.DataFrame(columns=self.i.data.space.values, index=self.i.data.time.values,
                                              data=band_power)
-            if self._amplitude:
-                band['port'].data = abs(band['port'].data)
             band['port'].meta = {**(self.i.meta or {}), **band['meta']}
