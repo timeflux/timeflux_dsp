@@ -127,9 +127,9 @@ class LocalDetect(Node):
             self.logger.warning(f'Peak detection expects data with one column, received '
                                 f'{self.i.data.shape[1]}. Considering the first one. ')
             self.i.data = self.i.data.take([0], axis=1)
-        self.i.data = self.i.data.dropna()
 
         # If there are no no-NaN rows in the column we're considering, there is nothing to do.
+        self.i.data = self.i.data.dropna()
         if self.i.data.empty:
             return
 
@@ -256,6 +256,11 @@ class RollingDetect(Node):
             self.logger.warning(f'Peak detection expects data with one column, received '
                                 f'{self.i.data.shape[1]}. Considering the first one. ')
             self.i.data = self.i.data.take([0], axis=1)
+
+        # If there are no no-NaN rows in the column we're considering, there is nothing to do.
+        self.i.data = self.i.data.dropna()
+        if self.i.data.empty:
+            return
 
         self._last = self.i.data.index[-1]
         if not self._ready:
