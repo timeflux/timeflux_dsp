@@ -127,10 +127,16 @@ class LocalDetect(Node):
             self.logger.warning(f'Peak detection expects data with one column, received '
                                 f'{self.i.data.shape[1]}. Considering the first one. ')
             self.i.data = self.i.data.take([0], axis=1)
+        self.i.data = self.i.data.dropna()
+
+        # If there are no no-NaN rows in the column we're considering, there is nothing to do.
+        if self.i.data.empty:
+            return
 
         column_name = self.i.data.columns[0]
         # At this point, we are sure that we have some data to process
         self.o.data = pd.DataFrame()
+
 
         for (value, timestamp) in zip(self.i.data.values, self.i.data.index):
             if self._reset is not None:
