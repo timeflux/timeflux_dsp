@@ -137,7 +137,6 @@ class LocalDetect(Node):
         # At this point, we are sure that we have some data to process
         self.o.data = pd.DataFrame()
 
-
         for (value, timestamp) in zip(self.i.data.values, self.i.data.index):
             if self._reset is not None:
                 if (self._last - timestamp).total_seconds() > self._reset: self._reset_states()
