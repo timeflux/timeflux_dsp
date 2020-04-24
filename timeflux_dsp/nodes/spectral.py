@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+import math
 from scipy.signal import welch
 from scipy.signal.spectral import fftpack
 from timeflux.core.node import Node
@@ -17,9 +18,9 @@ class FFT(Node):
 
     Example:
 
-        In this exemple, we simulate a white noise and we apply FFT:
+        In this example, we simulate a white noise and we apply FFT:
 
-         * ``fs`` = `10.0`
+         * ``rate`` = `10.0`
          * ``nfft`` = `5`
          * ``return_onesided`` = `False`
 
@@ -35,64 +36,67 @@ class FFT(Node):
 
         self.o.data::
 
-            xarray.DataArray (times: 1, freqs: 5, space: 3)
+            xarray.DataArray (times: 1, frequency: 5, space: 3)
             array([[[ 3.043119+0.j      ,  2.458294+0.j      ,  3.47464 +0.j      ],
                     [-0.252884+0.082233j, -0.06265 -1.098709j,  0.29353 +0.478287j],
                     [-0.805843+0.317437j,  0.188256+0.146341j,  0.151515-0.674376j],
                     [-0.805843-0.317437j,  0.188256-0.146341j,  0.151515+0.674376j],
                     [-0.252884-0.082233j, -0.06265 +1.098709j,  0.29353 -0.478287j]]])
             Coordinates:
-              * times    (times) datetime64[ns] 2018-01-01T00:00:00.396560186
-              * freqs    (freqs) float64 0.0 2.0 4.0 -4.0 -2.0
-              * space    (space) object 'A' 'B' 'C'
+              * times     (times) datetime64[ns] 2018-01-01T00:00:00.396560186
+              * frequency (frequency) float64 0.0 2.0 4.0 -4.0 -2.0
+              * space     (space) object 'A' 'B' 'C'
 
     Notes:
-       This node should be used after a buffer.
+       This node should be used after a Window of the appropriate length. For best performance, the window should provide
+       a fixed number of samples, and that number should be a power of 2 such as 64, 128, or 256.
+
+       The output from this node will be a complex number; to translate this into an amplitude you take it's magnitude
+       by passing it through an Expression node that uses the abs() function.
 
     References:
         * `scipy.fftpack <https://docs.scipy.org/doc/scipy/reference/fftpack.html>`_
 
     """
 
-    def __init__(self, fs=1.0, nfft=None, return_onesided=True):
+    def __init__(self, rate=None, nfft=None, return_onesided=True):
         """
             Args:
-                fs (float): Nominal sampling rate of the input data.
+                rate (float): Nominal sampling rate of the input data.
                 nfft (int|None): Length of the Fourier transform. Default: length of the chunk.
                 return_onesided (bool): If `True`, return a one-sided spectrum for real data.
                                               If `False` return a two-sided spectrum.
-                                              (Note that for complex data, a two-sided spectrum is always returned.)
-                                              Default: `True`.
         """
 
-        self._fs = fs
-        self._nfft = nfft
-        if return_onesided:
-            self._sides = 'onesided'
+        self._rate = rate
+        self._nfft = None if nfft is None else int(nfft)
+
+        self._onesided = return_onesided
+        if self._onesided:
+            self._fft = np.fft.rfft
         else:
-            self._sides = 'twosided'
-        if self._nfft is not None:
+            self._fft = fftpack.fft
+
+        if self._nfft is not None and self._rate is not None:
             self._set_freqs()
 
     def _check_nfft(self):
 
         # Check validity of nfft at first chunk
         if self._nfft is None:
-            self.logger.debug("nfft := length of the chunk ")
+            self.logger.debug("nfft := length of the input chunk ")
             self._nfft = self.i.data.shape[0]
-            self._set_freqs()
-        elif self._nfft < self.i.data.shape[0]:
-            raise ValueError('nfft must be greater than or equal to length of chunk.')
-        else:
-            self._nfft = int(self._nfft)
+        elif self._nfft != self.i.data.shape[0]:
+            # np & scipy will pad/truncate the input as necessary, but this may not be desired.
+            self.logger.warning("FFT input chunk has length {} but nfft is {}".format(self.i.data.shape[0], self._nfft))
 
     def _set_freqs(self):
 
         # Set freqs indexes
-        if self._sides == 'onesided':
-            self._freqs = np.fft.rfftfreq(self._nfft, 1 / self._fs)
+        if self._onesided:
+            self._freqs = np.fft.rfftfreq(self._nfft, 1 / self._rate)
         else:
-            self._freqs = fftpack.fftfreq(self._nfft, 1 / self._fs)
+            self._freqs = fftpack.fftfreq(self._nfft, 1 / self._rate)
 
     def update(self):
 
@@ -104,17 +108,21 @@ class FFT(Node):
             return
 
         # At this point, we are sure that we have some data to process
-        self._check_nfft()
+        if self._rate is None:
+            if 'rate' in self.i.meta:
+                self._rate = self.i.meta['rate']
+            else:
+                self.logger.warning("FFT using default sampling rate of 1; you should specify the rate explicitly or by meta.")
+                self._rate = 1.0
         self.o.data = self.i.data
-        if self._sides == 'twosided':
-            func = fftpack.fft
-        else:
-            self.o.data = self.o.data.apply(lambda x: x.real)
-            func = np.fft.rfft
-        values = func(self.o.data.values.T, n=self._nfft).T
+        self._check_nfft()
+        if not hasattr(self, '._freqs'):
+            self._set_freqs()
+
+        values = self._fft(self.o.data.values.T, n=self._nfft).T
         self.o.data = xr.DataArray(np.stack([values], 0),
                                    coords=[[self.o.data.index[-1]], self._freqs, self.o.data.columns],
-                                   dims=['time', 'freq', 'space'])
+                                   dims=['time', 'frequency', 'space'])
 
 
 class Welch(Node):
@@ -126,7 +134,7 @@ class Welch(Node):
 
         Example:
 
-        In this exemple, we simulate data with noisy sinus on three sensors (columns `a`, `b`, `c`):
+        In this example, we simulate data with noisy sinus on three sensors (columns `a`, `b`, `c`):
 
             * ``fs`` = `100.0`
             * ``nfft`` = `24`
@@ -142,7 +150,7 @@ class Welch(Node):
 
         node.o.data::
 
-            <xarray.DataArray (time: 1, freq: 13, space: 3)>
+            <xarray.DataArray (time: 1, frequency: 13, space: 3)>
             array([[[2.823924e-02, 1.087382e-01, 1.153163e-01],
                 [1.703466e-01, 6.048703e-01, 6.310628e-01],
                 ...            ...           ...
@@ -150,9 +158,9 @@ class Welch(Node):
                 [1.239551e-03, 7.412518e-04, 9.863335e-04],
                 [5.382880e-04, 4.999334e-04, 4.702757e-04]]])
             Coordinates:
-                * time     (time) datetime64[ns] 1970-01-01T00:00:01.190000
-                * freq     (freq) float64 0.0 4.167 8.333 12.5 16.67 ... 37.5 41.67 45.83 50.0
-                * space    (space) object 'a' 'b' 'c'
+                * time      (time) datetime64[ns] 1970-01-01T00:00:01.190000
+                * frequency (frequency) float64 0.0 4.167 8.333 12.5 16.67 ... 37.5 41.67 45.83 50.0
+                * space     (space) object 'a' 'b' 'c'
 
         Notes:
 
@@ -191,9 +199,9 @@ class Welch(Node):
             self.logger.debug('noverlap := nperseg/2 := {noverlap}'.format(noverlap=self._kwargs['noverlap']))
 
     def _check_nfft(self):
-        # Check validity of nfft at first chun
+        # Check validity of nfft at first chunk
         if not all(i <= len(self.i.data) for i in [self._kwargs[k] for k in ['nfft', 'nperseg', 'noverlap']]):
-            raise ValueError('nfft, noverlap and nperseg must be greater than or equal to length of chunk.')
+            raise ValueError('nfft, noverlap and nperseg must be less than or equal to length of chunk.')
         else:
             self._kwargs.update({keyword: int(self._kwargs[keyword]) for keyword in ['nfft', 'nperseg', 'noverlap']})
 
@@ -244,6 +252,10 @@ class Bands(Node):
             o (Port): Default output, provides DataFrame.
             o_* (Port): Dynamic outputs, provide DataFrame.
 
+    Notes:
+        The output from this node may be a complex number; to translate this into an amplitude you can take it's magnitude
+        by passing it through an Expression node that uses the abs() function.
+
     """
 
     def __init__(self, bands=None, relative=False):
@@ -252,7 +264,7 @@ class Bands(Node):
         Args:
            bands (dict): Define the band to extract given its name and its range.
                          An output port will be created with the given names as suffix.
-
+            relative (bool): Whether the bands values should be expressed as absolute values, or as a proportion of the sum of the whole spectrum. Default: False.
         """
         bands = bands or {'delta': [1, 4], 'theta': [4, 8], 'alpha': [8, 12], 'beta': [12, 30]}
         self._relative = relative
@@ -277,7 +289,6 @@ class Bands(Node):
                 tot_power = self.i.data.sum('frequency').values
                 tot_power[tot_power == 0.0] = 1
                 band_power /= tot_power
-
             band['port'].data = pd.DataFrame(columns=self.i.data.space.values, index=self.i.data.time.values,
                                              data=band_power)
             band['port'].meta = {**(self.i.meta or {}), **band['meta']}

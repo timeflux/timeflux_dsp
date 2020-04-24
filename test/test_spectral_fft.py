@@ -37,7 +37,7 @@ def test_welch():
 
     expected = xr.DataArray(np.stack([expected_data], 0),
                             coords=[expected_times, expected_freqs, data._data.columns],
-                            dims=['time', 'freq', 'space'])
+                            dims=['time', 'frequency', 'space'])
 
     xr.testing.assert_allclose(node.o.data, expected, rtol=1e-06)
 
@@ -56,3 +56,12 @@ def test_fft_nfft():
     node.i.data = data.next(10)
     node.update()
     assert node._nfft == 10
+
+def test_fft_nfft():
+    data.reset()
+    node = FFT(return_onesided=True)
+    node.i.data = data.next(10)
+    node.i.meta = {'rate': 5}
+    node.update()
+    assert node._nfft == 10
+    assert node._rate == 5
