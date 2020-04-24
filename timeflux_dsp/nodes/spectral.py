@@ -88,7 +88,7 @@ class FFT(Node):
             self._nfft = self.i.data.shape[0]
         elif self._nfft != self.i.data.shape[0]:
             # np & scipy will pad/truncate the input as necessary, but this may not be desired.
-            self.logger.debug("FFT input chunk has length {} but nfft is {}".format(self.i.data.shape[0], self._nfft))
+            self.logger.warning("FFT input chunk has length {} but nfft is {}".format(self.i.data.shape[0], self._nfft))
 
     def _set_freqs(self):
 
@@ -112,7 +112,7 @@ class FFT(Node):
             if 'rate' in self.i.meta:
                 self._rate = self.i.meta['rate']
             else:
-                self.logger.debug("FFT using default sampling rate of 1; you should specify the rate explicitly or by meta.")
+                self.logger.warning("FFT using default sampling rate of 1; you should specify the rate explicitly or by meta.")
                 self._rate = 1.0
         self.o.data = self.i.data
         self._check_nfft()
