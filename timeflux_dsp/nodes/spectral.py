@@ -82,7 +82,7 @@ class FFT(Node):
             self._nfft = self.i.data.shape[0]
             self._set_freqs()
         elif self._nfft < self.i.data.shape[0]:
-            raise ValueError('nfft must be greater than or equal to length of chunk.')
+            raise ValueError('nfft must be lower than or equal to length of chunk.')
         else:
             self._nfft = int(self._nfft)
 
@@ -193,7 +193,7 @@ class Welch(Node):
     def _check_nfft(self):
         # Check validity of nfft at first chun
         if not all(i <= len(self.i.data) for i in [self._kwargs[k] for k in ['nfft', 'nperseg', 'noverlap']]):
-            raise ValueError('nfft, noverlap and nperseg must be greater than or equal to length of chunk.')
+            raise ValueError('nfft, noverlap and nperseg must be smaller than or equal to length of chunk.')
         else:
             self._kwargs.update({keyword: int(self._kwargs[keyword]) for keyword in ['nfft', 'nperseg', 'noverlap']})
 
