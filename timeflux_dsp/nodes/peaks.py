@@ -197,7 +197,7 @@ class LocalDetect(Node):
                     )
         else:
             if value > self._mnv + self._delta:
-                _interval = (self._mxt - self._last_valley).total_seconds()
+                _interval = (self._mnt - self._last_valley).total_seconds()
                 self._mxv = value
                 self._mxt = timestamp
                 self._lfm = True
