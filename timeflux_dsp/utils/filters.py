@@ -1,6 +1,7 @@
+import logging
+
 import numpy as np
 from scipy import signal
-import logging
 
 LOGGER = logging.getLogger('timeflux.' + __name__)
 
