@@ -69,9 +69,9 @@ class FFT(Node):
         self._fs = fs
         self._nfft = nfft
         if return_onesided:
-            self._sides = 'onesided'
+            self._sides = "onesided"
         else:
-            self._sides = 'twosided'
+            self._sides = "twosided"
         if self._nfft is not None:
             self._set_freqs()
 
@@ -90,7 +90,7 @@ class FFT(Node):
     def _set_freqs(self):
 
         # Set freqs indexes
-        if self._sides == 'onesided':
+        if self._sides == "onesided":
             self._freqs = np.fft.rfftfreq(self._nfft, 1 / self._fs)
         else:
             self._freqs = fftpack.fftfreq(self._nfft, 1 / self._fs)
@@ -107,15 +107,17 @@ class FFT(Node):
         # At this point, we are sure that we have some data to process
         self._check_nfft()
         self.o.data = self.i.data
-        if self._sides == 'twosided':
+        if self._sides == "twosided":
             func = fftpack.fft
         else:
             self.o.data = self.o.data.apply(lambda x: x.real)
             func = np.fft.rfft
         values = func(self.o.data.values.T, n=self._nfft).T
-        self.o.data = xr.DataArray(np.stack([values], 0),
-                                   coords=[[self.o.data.index[-1]], self._freqs, self.o.data.columns],
-                                   dims=['time', 'freq', 'space'])
+        self.o.data = xr.DataArray(
+            np.stack([values], 0),
+            coords=[[self.o.data.index[-1]], self._freqs, self.o.data.columns],
+            dims=["time", "freq", "space"],
+        )
 
 
 class Welch(Node):
@@ -165,7 +167,7 @@ class Welch(Node):
 
     """
 
-    def __init__(self, rate=None, closed='right', **kwargs):
+    def __init__(self, rate=None, closed="right", **kwargs):
         """
             Args:
                 rate (float|None): Nominal sampling rate of the input data. If `None`, the rate will be taken from the input meta/
@@ -237,19 +239,23 @@ class Welch(Node):
         self._check_nfft()
         f, Pxx = welch(x=self.i.data, fs=rate, **self._kwargs, axis=0)
 
-        if self._closed == 'left':
+        if self._closed == "left":
             time = self.i.data.index[-1]
-        elif self._closed == 'center':
+        elif self._closed == "center":
+
             def middle(a):
                 return int(np.ceil(len(a) / 2)) - 1
+
             time = self.i.data.index[middle(self.i.data)]
-        else: # right
+        else:  # right
             time = self.i.data.index[-1]
         # f is the frequency axis and Pxx the average power of shape (Nfreqs x Nchanels)
         # we reshape Pxx to fit the ('time' x 'freq' x 'space') dimensions
-        self.o.data = xr.DataArray(np.stack([Pxx], 0),
-                                   coords=[[time], f, self.i.data.columns],
-                                   dims=['time', 'frequency', 'space'])
+        self.o.data = xr.DataArray(
+            np.stack([Pxx], 0),
+            coords=[[time], f, self.i.data.columns],
+            dims=["time", "frequency", "space"],
+        )
 
 
 class Bands(Node):
@@ -273,14 +279,22 @@ class Bands(Node):
                          An output port will be created with the given names as suffix.
 
         """
-        bands = bands or {'delta': [1, 4], 'theta': [4, 8], 'alpha': [8, 12], 'beta': [12, 30]}
+        bands = bands or {
+            "delta": [1, 4],
+            "theta": [4, 8],
+            "alpha": [8, 12],
+            "beta": [12, 30],
+        }
         self._relative = relative
         self._bands = []
         for band_name, band_range in bands.items():
-            self._bands.append(dict(port=getattr(self, 'o_' + band_name),
-                                    slice=slice(band_range[0], band_range[1]),
-                                    meta={'bands': {'range': band_range,
-                                                    'relative': relative}}))
+            self._bands.append(
+                dict(
+                    port=getattr(self, "o_" + band_name),
+                    slice=slice(band_range[0], band_range[1]),
+                    meta={"bands": {"range": band_range, "relative": relative}},
+                )
+            )
 
     def update(self):
 
@@ -291,12 +305,17 @@ class Bands(Node):
         # At this point, we are sure that we have some data to process
         for band in self._bands:
             # 1. select the Xarray on freq axis in the range, 2. average along freq axis
-            band_power = self.i.data.loc[{'frequency': band['slice']}].sum('frequency').values  # todo: sum
+            band_power = (
+                self.i.data.loc[{"frequency": band["slice"]}].sum("frequency").values
+            )  # todo: sum
             if self._relative:
-                tot_power = self.i.data.sum('frequency').values
+                tot_power = self.i.data.sum("frequency").values
                 tot_power[tot_power == 0.0] = 1
                 band_power /= tot_power
 
-            band['port'].data = pd.DataFrame(columns=self.i.data.space.values, index=self.i.data.time.values,
-                                             data=band_power)
-            band['port'].meta = {**(self.i.meta or {}), **band['meta']}
+            band["port"].data = pd.DataFrame(
+                columns=self.i.data.space.values,
+                index=self.i.data.time.values,
+                data=band_power,
+            )
+            band["port"].meta = {**(self.i.meta or {}), **band["meta"]}
