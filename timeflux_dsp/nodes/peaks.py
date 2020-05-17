@@ -235,7 +235,7 @@ class RollingDetect(Node):
         o (Port): Events output, provides DataFrame.
     """
 
-    def __init__(self, length=0.5, tol=0.1, rate=None):
+    def __init__(self, length: object = 0.5, tol: object = 0.1, rate: object = None) -> object:
 
         super().__init__()
         self._length = length  # Window of analysis
@@ -330,7 +330,7 @@ class RollingDetect(Node):
                 # peak detected
                 _lag = (self._last - peak).total_seconds()
                 self._last_peak = peak
-                return peak, "peak", value, _lag, _interval
+                return peak, "peak", self._values_buffer[self._n], _lag, _interval
         elif self._values_buffer[self._n] == min(self._values_buffer):
             valley = self._timestamps_buffer[self._n]
             # peak candidate
@@ -339,7 +339,7 @@ class RollingDetect(Node):
                 # peak detected
                 _lag = (self._last - valley).total_seconds()
                 self._last_valley = valley
-                return valley, "valley", value, _lag, _interval
+                return valley, "valley", self._values_buffer[self._n], _lag, _interval
         return False
 
 
@@ -385,7 +385,7 @@ class Rate(Node):
 
         target_index = self.i.data[
             self.i.data[self._event_label] == self._event_trigger
-        ].index
+            ].index
 
         if self._column_name is None and len(self.i.meta) > 0:
             self._column_name = self.i.meta["column_name"]

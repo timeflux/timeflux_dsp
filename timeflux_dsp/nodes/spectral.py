@@ -51,7 +51,7 @@ class FFT(Node):
        This node should be used after a buffer.
 
     References:
-        * `scipy.fftpack <https://docs.scipy.org/doc/scipy/reference/fftpack.html>`_
+        * `scipy.fft <https://docs.scipy.org/doc/scipy/reference/fft.html>`_
 
     """
 

@@ -5,11 +5,12 @@ import pandas as pd
 import pytest
 import xarray as xr
 from timeflux.helpers.testing import DummyData
+
 from timeflux_dsp.nodes.spectral import FFT
 
 fs = 10
 
-data = DummyData(rate=fs, jitter=.05, )
+data = DummyData(rate=fs, jitter=.05)
 all_data = data.next(50)
 
 
