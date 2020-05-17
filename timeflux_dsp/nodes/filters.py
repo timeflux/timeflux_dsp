@@ -594,12 +594,14 @@ class AdaptiveScaler(Window):
 
 class FilterBank(Branch):
     """ Apply multiple IIR Filters to the signal and stack the components horizontally
-        Attributes:
+
+    Attributes:
         i (Port): Default input, expects DataFrame.
         o (Port): Default output, provides DataFrame.
+
     Args:
         rate (float): Nominal sampling rate of the input data. If None, rate is get
-                  from the meta.
+            from the meta.
         filters (dict|None): Define the iir filter to apply given its name and its params.
     """
 
