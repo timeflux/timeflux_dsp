@@ -2,6 +2,7 @@
 from numbers import Number
 
 import numpy as np
+import os
 import pandas as pd
 import pandas.util.testing as tm
 import pytest
@@ -14,7 +15,8 @@ from timeflux_dsp.nodes.peaks import LocalDetect, RollingDetect
 def ppg_generator():
     """Create object to mimic data streaming """
     # Signal of 300 points (sum of two sinus at 0.5 Hz  and 10 Hz) sampled at 50 kHz.
-    df = pd.read_csv("data/test_data_ppg.csv", index_col=None)
+
+    df = pd.read_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'test_data_ppg.csv'), index_col=None)
     df = pd.DataFrame(
         index=pd.to_datetime(df["index"].values), data=df["PPG"].values, columns=["PPG"]
     )
