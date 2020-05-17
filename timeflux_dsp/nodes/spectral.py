@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.signal import welch
-from scipy.signal.spectral import fftpack
+from scipy.fft import fftfreq, rfftfreq, fft, rfft
 
 from timeflux.core.node import Node
 
@@ -91,9 +91,9 @@ class FFT(Node):
 
         # Set freqs indexes
         if self._sides == "onesided":
-            self._freqs = np.fft.rfftfreq(self._nfft, 1 / self._fs)
+            self._freqs = rfftfreq(self._nfft, 1 / self._fs)
         else:
-            self._freqs = fftpack.fftfreq(self._nfft, 1 / self._fs)
+            self._freqs = fftfreq(self._nfft, 1 / self._fs)
 
     def update(self):
 
@@ -108,10 +108,10 @@ class FFT(Node):
         self._check_nfft()
         self.o.data = self.i.data
         if self._sides == "twosided":
-            func = fftpack.fft
+            func = fft
         else:
             self.o.data = self.o.data.apply(lambda x: x.real)
-            func = np.fft.rfft
+            func = rfft
         values = func(self.o.data.values.T, n=self._nfft).T
         self.o.data = xr.DataArray(
             np.stack([values], 0),
