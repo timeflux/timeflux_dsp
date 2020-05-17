@@ -1,5 +1,6 @@
 """Tests for detection peaks nodes"""
 from numbers import Number
+
 import numpy as np
 import pandas as pd
 import pandas.util.testing as tm
@@ -13,13 +14,13 @@ from timeflux_dsp.nodes.peaks import LocalDetect, RollingDetect
 def ppg_generator():
     """Create object to mimic data streaming """
     # Signal of 300 points (sum of two sinus at 0.5 Hz  and 10 Hz) sampled at 50 kHz.
-    df = pd.read_csv("../test/data/test_data_ppg.csv", index_col=None)
+    df = pd.read_csv("data/test_data_ppg.csv", index_col=None)
     df = pd.DataFrame(index=pd.to_datetime(df['index'].values), data=df["PPG"].values, columns=['PPG'])
     ppg_generator = ReadData(df[:200])
     return ppg_generator
 
 
-def assert_dict_almost_equal(dict1, dict2, decimal=7, keys=None):
+def assert_dict_almost_equal(dict1, dict2, decimal=4, keys=None):
     if keys is None:
         np.testing.assert_array_equal(list(dict1.keys()), list(dict2.keys()))
     for k in keys or dict1:
@@ -85,33 +86,34 @@ def test_localdetect_on_ppg(ppg_generator):
     looper = Looper(ppg_generator, node)
     cascade_output, _ = looper.run(chunk_size=5)
 
-    expected_extremum_times = ['2018-11-19 11:06:39.620900',
-                                       '2018-11-19 11:06:39.794709043',
-                                       '2018-11-19 11:06:40.605209027',
-                                       '2018-11-19 11:06:40.761455675',
-                                       '2018-11-19 11:06:41.560254261',
-                                       '2018-11-19 11:06:41.714533810']
-    actual_extremum_times = [data['extremum_time'] for data in cascade_output.data.values]
+    expected_extremum_times = pd.DatetimeIndex(['2018-11-19 11:06:39.62',
+                                                '2018-11-19 11:06:39.79',
+                                                '2018-11-19 11:06:40.61',
+                                                '2018-11-19 11:06:40.76',
+                                                '2018-11-19 11:06:41.56',
+                                                '2018-11-19 11:06:41.71'])
+    actual_extremum_times = pd.DatetimeIndex([data['extremum_time'] for data in cascade_output.data.values])
     expected_labels = ['peak', 'valley'] * 3
-    expected_data_peak = {'value': np.array([1.00546074]),
-                          'lag': 0.064445281,
-                          'interval': 0.654236268,
-                          'column_name': 'PPG'}
-    expected_data_valley = {'value': np.array([-1.01101112]),
-                            'lag': 0.437466566,
-                            'interval': 0.654236268,
-                            'column_name': 'PPG'}
 
-    assert expected_extremum_times == actual_extremum_times
+    expected_data_peak_2 = {'value': np.array([0.95]),
+                            'lag': 0.048,
+                            'interval': 0.98,
+                            'column_name': 'PPG'}
+    expected_data_valley_3 = {'value': np.array([-1.05]),
+                              'lag': 0.48,
+                              'interval': 0.96,
+                              'column_name': 'PPG'}
+
+    pd.testing.assert_index_equal(expected_extremum_times, actual_extremum_times.round('10ms'))
     np.testing.assert_array_equal(expected_labels, cascade_output.label.values)
-    assert_dict_almost_equal(expected_data_peak, cascade_output.data.values[0],
+    assert_dict_almost_equal(expected_data_peak_2, cascade_output.data.values[2], decimal=2,
                              keys=['value', 'lag', 'interval', 'column_name'])
-    assert_dict_almost_equal(expected_data_valley, cascade_output.data.values[1],
+    assert_dict_almost_equal(expected_data_valley_3, cascade_output.data.values[3], decimal=2,
                              keys=['value', 'lag', 'interval', 'column_name'])
 
 
 def test_rollingdetect(ppg_generator):
-    node = RollingDetect(window=0.8, tol=0.5)
+    node = RollingDetect(length=0.8, tol=0.5, rate=64)
 
     # reset generator
     ppg_generator.reset()
@@ -119,21 +121,24 @@ def test_rollingdetect(ppg_generator):
     looper = Looper(ppg_generator, node)
     cascade_output, _ = looper.run(chunk_size=5)
 
-    expected_index = pd.DatetimeIndex(['2018-11-19 11:06:41.529004261', '2018-11-19 11:06:41.685242884'],
-                                      dtype='datetime64[ns]', freq=None)
+    expected_index = pd.DatetimeIndex(['2018-11-19 11:06:39.62',
+                                       '2018-11-19 11:06:39.79',
+                                       '2018-11-19 11:06:40.61',
+                                       '2018-11-19 11:06:40.76'])
 
-    expected_labels = ['peak', 'valley']
-    expected_data_peak = {'value': 0.7587511539459229,
-                          'lag': 0.0,
-                          'interval': 2.562340529,
-                          'column_name': 'PPG'}
-    expected_data_valley = {'value': -0.9906618595123292,
-                            'lag': 2.718579152,
-                            'interval': 2.718579152,
+    expected_labels = ['peak', 'valley', 'peak', 'valley']
+    expected_data_peak_2 = {'value': np.array([0.95]),
+                            'lag': 0.84,
+                            'interval': 0.98,
                             'column_name': 'PPG'}
-    pd.testing.assert_index_equal(expected_index, cascade_output.index)
+    expected_data_valley_3 = {'value': np.array([-1.05]),
+                              'lag': 0.84,
+                              'interval': 0.96,
+                              'column_name': 'PPG'}
+
+    pd.testing.assert_index_equal(expected_index, cascade_output.index.round('10ms'))
     np.testing.assert_array_equal(expected_labels, cascade_output.label.values)
-    assert_dict_almost_equal(expected_data_peak, cascade_output.data.values[0], keys=['value', 'lag', 'interval', 'column_name'])
-    assert_dict_almost_equal(expected_data_valley, cascade_output.data.values[1], keys=['value', 'lag', 'interval', 'column_name'])
-
-
+    assert_dict_almost_equal(expected_data_peak_2, cascade_output.data.values[2], decimal=2,
+                             keys=['value', 'lag', 'interval', 'column_name'])
+    assert_dict_almost_equal(expected_data_valley_3, cascade_output.data.values[3], decimal=2,
+                             keys=['value', 'lag', 'interval', 'column_name'])
