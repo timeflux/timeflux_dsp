@@ -32,7 +32,7 @@ class LocalDetect(Node):
                     Default: None.
 
     Example:
-       .. literalinclude:: /../../timeflux_dsp/test/graphs/droprows.yaml
+       .. literalinclude:: /../examples/droprows.yaml
            :language: yaml
 
     Example:
@@ -43,7 +43,7 @@ class LocalDetect(Node):
         * ``tol`` = `0.5`
         * ``reset`` = None
 
-        .. image:: /../../timeflux_dsp/doc/static/image/realtimepeaks_io.svg
+        .. image:: /static/image/realtimepeaks_io.svg
            :align: center
 
         self.o.data::
@@ -75,7 +75,7 @@ class LocalDetect(Node):
 
         See the illustration above:
 
-        .. image:: /../../timeflux_dsp/doc/static/image/realtimepeaks_illustration.png
+        .. image:: /static/image/realtimepeaks_illustration.png
             :align: center
 
 

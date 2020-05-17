@@ -11,14 +11,14 @@ def make_object(fullname, params=None):
     """
     params = params or {}
 
-    module_name, class_name = fullname.rsplit('.', 1)
+    module_name, class_name = fullname.rsplit(".", 1)
 
     try:
         module = import_module(module_name)
     except ImportError:
-        raise ImportError(f'Could not import module {module_name}')
+        raise ImportError(f"Could not import module {module_name}")
     try:
         object_instance = getattr(module, class_name)(**params)
     except AttributeError:
-        raise ValueError(f'Module {module_name} has no object {class_name}')
+        raise ValueError(f"Module {module_name} has no object {class_name}")
     return object_instance

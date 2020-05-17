@@ -38,7 +38,7 @@ class DropRows(Node):
                            of the samples is taken.
 
     Example:
-       .. literalinclude:: /../../timeflux_dsp/test/graphs/droprows.yaml
+       .. literalinclude:: /../examples/droprows.yaml
            :language: yaml
 
     Example:
@@ -48,7 +48,7 @@ class DropRows(Node):
         * ``factor`` = `2`
         * ``method`` = `None` (see orange trace) | ``method`` = `"mean"` (see green trace)
 
-        .. image:: /../../timeflux_dsp/doc/static/image/droprows_io.svg
+        .. image:: /static/image/droprows_io.svg
            :align: center
 
 
@@ -130,7 +130,7 @@ class Resample(Node):
                       in the Fourier domain. Default: `None`.
 
     Example:
-        .. literalinclude:: /../../timeflux_dsp/test/graphs/resample.yaml
+        .. literalinclude:: /../examples/resample.yaml
            :language: yaml
 
     Notes:
@@ -228,7 +228,7 @@ class IIRFilter(Node):
 
         We plot the input signal, the output signal and the corresponding offline filtering.
 
-        .. image:: /../../timeflux_dsp/doc/static/image/iirfilter_io.svg
+        .. image:: /static/image/iirfilter_io.svg
            :align: center
 
     Notes:
@@ -442,7 +442,7 @@ class FIRFilter(Node):
         We plot the input signal, the output signal, the corresponding offline
         filtering and the output signal after delay correction.
 
-        .. image:: /../../timeflux_dsp/doc/static/image/firfilter_io.png
+        .. image:: /static/image/firfilter_io.png
            :align: center
 
     Notes:
