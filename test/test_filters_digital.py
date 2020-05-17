@@ -57,7 +57,6 @@ def test_cascade_iirfilter(generator):
     cutoff_hz = 3
     # create filter
     node_iir = IIRFilter(rate=rate,
-                         columns='all',
                          frequencies=[cutoff_hz],
                          filter_type="lowpass",
                          order=3)
@@ -145,10 +144,8 @@ def test_bandpass_power_ratio():
     original.index = original.index[0] + pd.to_timedelta(np.arange(n) / rate, unit='s')
 
     node_iir = IIRFilter(rate=rate,
-                         columns='all',
                          frequencies=[lo, hi], filter_type='bandpass')
     node_fir = FIRFilter(rate=rate,
-                         columns='all',
                          frequencies=[lo, hi], filter_type='bandpass',
                          order=rate
                          )
@@ -188,7 +185,6 @@ def test_custom_sos(generator):
     sos = np.array([[0.00475052, 0.00950105, 0.00475052, 1., -0.6795993, 0.],
                     [1, 1., 0., 1., -1.57048578, 0.68910035]])
     node_iir_custom1 = IIRFilter(rate=rate,
-                                 columns='all',
                                  order=None,
                                  frequencies=None,
                                  filter_type=None,
@@ -201,7 +197,6 @@ def test_custom_sos(generator):
     # sos does not have valid form
     with pytest.raises(ValueError):
         node_iir_custom2 = IIRFilter(rate=rate,
-                                     columns='all',
                                      order=None,
                                      frequencies=None,
                                      filter_type=None,
