@@ -2,8 +2,8 @@
 import numpy as np
 import pandas as pd
 import pytest
-
 from timeflux.helpers.testing import DummyData, Looper
+
 from timeflux_dsp.nodes.filters import DropRows, Resample
 
 
