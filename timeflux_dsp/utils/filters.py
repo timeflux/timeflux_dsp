@@ -75,7 +75,7 @@ def design_edges(frequencies, nyq, mode):
 
     The frequency response is (approximately) given by:
 
-    .. image:: /../../timeflux_dsp/doc/static/image/edges_bandpass.svg
+    .. image:: /static/image/edges_bandpass.svg
 
     ..
     ..
@@ -100,7 +100,7 @@ def design_edges(frequencies, nyq, mode):
 
     The frequency response is (approximately) given by:
 
-    .. image:: /../../timeflux_dsp/doc/static/image/edges_bandstop.svg
+    .. image:: /static/image/edges_bandstop.svg
 
     ..
     ..        1-|---------                   ----------
@@ -126,7 +126,7 @@ def design_edges(frequencies, nyq, mode):
 
         The frequency response is (approximately) given by:
 
-        .. image:: /../../timeflux_dsp/doc/static/image/edges_lowpass.svg
+        .. image:: /static/image/edges_lowpass.svg
 
 
     ..    1-|------------------------
@@ -147,7 +147,7 @@ def design_edges(frequencies, nyq, mode):
 
         The frequency response is (approximately) given by:
 
-    .. image:: /../../timeflux_dsp/doc/static/image/edges_highpass.svg
+    .. image:: /static/image/edges_highpass.svg
 
 
     ..
