@@ -1,17 +1,20 @@
 import pandas as pd
 import numpy as np
 
-class DummyData():
+
+class DummyData:
     """Generate dummy data."""
 
-    def __init__(self,
-                 num_rows=1000,
-                 num_cols=5,
-                 rate=10,
-                 jitter=.05,
-                 start_date='2018-01-01',
-                 seed=42,
-                 round=6):
+    def __init__(
+        self,
+        num_rows=1000,
+        num_cols=5,
+        rate=10,
+        jitter=0.05,
+        start_date="2018-01-01",
+        seed=42,
+        round=6,
+    ):
         """
         Initialize the dataframe.
 
@@ -30,13 +33,11 @@ class DummyData():
         frequency = 1 / rate
 
         indices = pd.date_range(
-            start=start_date,
-            periods=num_rows,
-            freq=pd.DateOffset(seconds=frequency))
+            start=start_date, periods=num_rows, freq=pd.DateOffset(seconds=frequency)
+        )
 
         jitter = frequency * jitter
-        deltas = pd.to_timedelta(
-            np.random.uniform(-jitter, jitter, num_rows), unit='s')
+        deltas = pd.to_timedelta(np.random.uniform(-jitter, jitter, num_rows), unit="s")
         indices = indices + deltas
 
         rows = np.random.rand(num_rows, num_cols).round(round)
@@ -65,7 +66,7 @@ class DummyData():
         self._cursor = 0
 
 
-class CustomData():
+class CustomData:
     """Generate dummy data."""
 
     def __init__(self, data):
@@ -98,4 +99,3 @@ class CustomData():
         """
 
         self._cursor = 0
-

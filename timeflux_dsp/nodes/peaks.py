@@ -235,7 +235,9 @@ class RollingDetect(Node):
         o (Port): Events output, provides DataFrame.
     """
 
-    def __init__(self, length: object = 0.5, tol: object = 0.1, rate: object = None) -> object:
+    def __init__(
+        self, length: object = 0.5, tol: object = 0.1, rate: object = None
+    ) -> object:
 
         super().__init__()
         self._length = length  # Window of analysis
@@ -385,7 +387,7 @@ class Rate(Node):
 
         target_index = self.i.data[
             self.i.data[self._event_label] == self._event_trigger
-            ].index
+        ].index
 
         if self._column_name is None and len(self.i.meta) > 0:
             self._column_name = self.i.meta["column_name"]
