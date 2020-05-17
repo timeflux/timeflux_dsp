@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.signal import welch
-from scipy.signal.spectral import fftpack
+from scipy import fft
 
 from timeflux.core.node import Node
 
@@ -51,7 +51,7 @@ class FFT(Node):
        This node should be used after a buffer.
 
     References:
-        * `scipy.fftpack <https://docs.scipy.org/doc/scipy/reference/fftpack.html>`_
+        * `scipy.fft <https://docs.scipy.org/doc/scipy/reference/fft.html>`_
 
     """
 
@@ -93,7 +93,7 @@ class FFT(Node):
         if self._sides == "onesided":
             self._freqs = np.fft.rfftfreq(self._nfft, 1 / self._fs)
         else:
-            self._freqs = fftpack.fftfreq(self._nfft, 1 / self._fs)
+            self._freqs = np.fft.fftfreq(self._nfft, 1 / self._fs)
 
     def update(self):
 
@@ -108,7 +108,7 @@ class FFT(Node):
         self._check_nfft()
         self.o.data = self.i.data
         if self._sides == "twosided":
-            func = fftpack.fft
+            func = fft
         else:
             self.o.data = self.o.data.apply(lambda x: x.real)
             func = np.fft.rfft
