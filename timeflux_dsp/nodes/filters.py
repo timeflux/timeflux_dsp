@@ -3,10 +3,15 @@
 import numpy as np
 import pandas as pd
 from scipy import signal
+
 from timeflux.core.branch import Branch
 from timeflux.core.node import Node
 from timeflux.nodes.window import Window
-from timeflux_dsp.utils.filters import construct_fir_filter, construct_iir_filter, design_edges
+from timeflux_dsp.utils.filters import (
+    construct_fir_filter,
+    construct_iir_filter,
+    design_edges,
+)
 from timeflux_dsp.utils.import_helpers import make_object
 
 
@@ -70,8 +75,8 @@ class DropRows(Node):
         self.o.meta = self.i.meta
 
         # if nominal rate is specified in the meta, update it.
-        if 'rate' in self.o.meta:
-            self.o.meta['rate'] /= self._factor
+        if "rate" in self.o.meta:
+            self.o.meta["rate"] /= self._factor
 
         # When we have not received data, there is nothing to do
         if not self.i.ready():
@@ -86,25 +91,26 @@ class DropRows(Node):
 
         if self._method is None:
             # take every kth sample with k=factor starting from the k-1 position
-            self.o.data = self.i.data.iloc[self._factor - 1::self._factor]
+            self.o.data = self.i.data.iloc[self._factor - 1 :: self._factor]
         else:
             # estimate rolling mean (or median) with window length=factor and take
             # every kth sample with k=factor starting from the k-1 position
-            if self._method == 'mean':
+            if self._method == "mean":
                 self.o.data = (
-                    self.i.data.rolling(window=self._factor,
-                                        min_periods=self._factor,
-                                        center=False)
-                        .mean()
-                        .iloc[self._factor - 1::self._factor]
+                    self.i.data.rolling(
+                        window=self._factor, min_periods=self._factor, center=False
+                    )
+                    .mean()
+                    .iloc[self._factor - 1 :: self._factor]
                 )
-            elif self._method == 'median':
+            elif self._method == "median":
                 self.o.data = (
-                    self.i.data.rolling(window=self._factor,
-                                        min_periods=self._factor,
-                                        center=False)
-                        .median()
-                        .iloc[self._factor - 1::self._factor])
+                    self.i.data.rolling(
+                        window=self._factor, min_periods=self._factor, center=False
+                    )
+                    .median()
+                    .iloc[self._factor - 1 :: self._factor]
+                )
 
 
 class Resample(Node):
@@ -150,8 +156,8 @@ class Resample(Node):
         self.o.meta = self.i.meta
 
         # if nominal rate is specified in the meta, update it.
-        if 'rate' in self.o.meta:
-            self.o.meta['rate'] /= self._factor
+        if "rate" in self.o.meta:
+            self.o.meta["rate"] /= self._factor
 
         # When we have not received data, there is nothing to do
         if not self.i.ready():
@@ -166,14 +172,16 @@ class Resample(Node):
         if self.i.data.shape[0] % self._factor == 0:
             self._previous = pd.DataFrame()
         else:
-            self._previous = self.i.data.iloc[(n // self._factor) * self._factor:]
+            self._previous = self.i.data.iloc[(n // self._factor) * self._factor :]
             self.i.data = self.i.data.iloc[: (n // self._factor) * self._factor]
 
         self.o.data = pd.DataFrame(
-            data=signal.resample(x=self.i.data.values, num=n // self._factor,
-                                 window=self._window),
+            data=signal.resample(
+                x=self.i.data.values, num=n // self._factor, window=self._window
+            ),
             index=self.i.data.index[np.arange(0, n - 1, self._factor)],
-            columns=self.i.data.columns)
+            columns=self.i.data.columns,
+        )
 
 
 class IIRFilter(Node):
@@ -241,19 +249,15 @@ class IIRFilter(Node):
 
     """
 
-    def __init__(self, frequencies=None,
-                       rate=None,
-                       filter_type='bandpass',
-                       sos=None, **kwargs):
+    def __init__(
+        self, frequencies=None, rate=None, filter_type="bandpass", sos=None, **kwargs
+    ):
 
         super().__init__()
         # self._order = order
         self._frequencies = frequencies
         self._filter_type = filter_type
-        self._kwargs = dict(order=None,
-                            design='butter',
-                            pass_loss=3.0,
-                            stop_atten=50.0)
+        self._kwargs = dict(order=None, design="butter", pass_loss=3.0, stop_atten=50.0)
         self._kwargs.update(kwargs)
         self._rate = rate
         self._zi = None
@@ -276,38 +280,50 @@ class IIRFilter(Node):
 
         # set rate from the data if it is not yet given
         if self._rate is None:
-            self._rate = self.i.meta.get('rate', None)
+            self._rate = self.i.meta.get("rate", None)
             if self._rate is None:
                 # If there is no rate in the meta, set rate to 1.0
                 self._rate = 1.0
-                self.logger.warning(f'Nominal rate not supplied, considering '
-                                    f'1.0 Hz instead. ')
+                self.logger.warning(
+                    f"Nominal rate not supplied, considering " f"1.0 Hz instead. "
+                )
             else:
-                self.logger.info(f'Nominal rate set to {self._rate}. ')
+                self.logger.info(f"Nominal rate set to {self._rate}. ")
 
         if self._sos is None:
             self._design_sos()
         if self._zi is None:
             zi0 = signal.sosfilt_zi(self._sos)
-            self._zi = np.stack([(zi0 * self.i.data.iloc[0, k_col]) for k_col in range(len(self._columns))], axis=1)
-        port_o, self._zi = signal.sosfilt(self._sos,
-                                    self.i.data.values.T,
-                                    zi=self._zi)
-        self.o.data = pd.DataFrame(port_o.T, columns=self._columns, index=self.i.data.index)
+            self._zi = np.stack(
+                [
+                    (zi0 * self.i.data.iloc[0, k_col])
+                    for k_col in range(len(self._columns))
+                ],
+                axis=1,
+            )
+        port_o, self._zi = signal.sosfilt(self._sos, self.i.data.values.T, zi=self._zi)
+        self.o.data = pd.DataFrame(
+            port_o.T, columns=self._columns, index=self.i.data.index
+        )
 
     def _design_sos(self):
 
         if self._sos_custom is None:
             # Calculate an IIR filter kernel for a given sampling rate.
-            self._sos, self._freqs = construct_iir_filter(rate=self._rate, frequencies=self._frequencies,
-                                                          filter_type=self._filter_type,
-                                                          output='sos',
-                                                          **self._kwargs)
+            self._sos, self._freqs = construct_iir_filter(
+                rate=self._rate,
+                frequencies=self._frequencies,
+                filter_type=self._filter_type,
+                output="sos",
+                **self._kwargs,
+            )
         else:
             if self._sos_custom.shape[1] == 6:
                 self._sos = self._sos_custom
             else:
-                raise ValueError(f'sos must have shape (n_sections, 6), received {self._sos_custom.shape} instead. ')
+                raise ValueError(
+                    f"sos must have shape (n_sections, 6), received {self._sos_custom.shape} instead. "
+                )
 
 
 class IIRLineFilter(Node):
@@ -330,7 +346,13 @@ class IIRLineFilter(Node):
 
     """
 
-    def __init__(self, rate=None, edges_center=(50, 60, 100, 120), orders=(2, 1, 1, 1), edges_width=(3, 3, 3, 3)):
+    def __init__(
+        self,
+        rate=None,
+        edges_center=(50, 60, 100, 120),
+        orders=(2, 1, 1, 1),
+        edges_width=(3, 3, 3, 3),
+    ):
 
         super().__init__()
 
@@ -343,11 +365,18 @@ class IIRLineFilter(Node):
         if isinstance(edges_width, int):
             edges_width = [edges_width] * len(edges_center)
 
-        filter_type = 'bandstop'
+        filter_type = "bandstop"
         self._nodes = []
         for edge_center, edge_width, order in zip(edges_center, edges_width, orders):
             frequencies = [edge_center - edge_width, edge_center + edge_width]
-            self._nodes.append(IIRFilter(rate=rate, order=order, frequencies=frequencies, filter_type=filter_type))
+            self._nodes.append(
+                IIRFilter(
+                    rate=rate,
+                    order=order,
+                    frequencies=frequencies,
+                    filter_type=filter_type,
+                )
+            )
 
     def update(self):
 
@@ -426,19 +455,25 @@ class FIRFilter(Node):
 
     """
 
-    def __init__(self, frequencies, rate=None, columns='all', order=20, filter_type='bandpass',
-                 coeffs=None, **kwargs):
+    def __init__(
+        self,
+        frequencies,
+        rate=None,
+        columns="all",
+        order=20,
+        filter_type="bandpass",
+        coeffs=None,
+        **kwargs,
+    ):
 
         super().__init__()
         self._order = order
         self._frequencies = frequencies
         self._mode = filter_type
         self._rate = rate
-        self._columns = columns if columns != 'all' else None
+        self._columns = columns if columns != "all" else None
         self._coeffs_custom = coeffs
-        self._kwargs = dict(design='firwin2',
-                            phase='linear',
-                            window='hamming')
+        self._kwargs = dict(design="firwin2", phase="linear", window="hamming")
         self._kwargs.update(kwargs)
 
         # Initialize the filter kernels and states, one per stream
@@ -461,31 +496,34 @@ class FIRFilter(Node):
 
         # set rate from the data if it is not yet given
         if self._rate is None:
-            self._rate = self.i.meta.get('rate', None)
+            self._rate = self.i.meta.get("rate", None)
             if self._rate is None:
                 # If there is no rate in the meta, set rate to 1.0
                 self._rate = 1.0
-                self.logger.warning(f'Nominal rate not supplied, considering '
-                                    f'1.0 Hz instead. ')
+                self.logger.warning(
+                    f"Nominal rate not supplied, considering " f"1.0 Hz instead. "
+                )
             else:
-                self.logger.info(f'Nominal rate set to {self._rate}. ')
+                self.logger.info(f"Nominal rate set to {self._rate}. ")
 
         self._coeffs, self._delay = self._design_filter()
 
         for column in self._columns:
             if column not in self._zi:
                 zi0 = signal.lfilter_zi(self._coeffs, 1.0)
-                self._zi[column] = (zi0 * self.i.data[column].values[0])
-            port_o_col, self._zi[column] = signal.lfilter(b=self._coeffs,
-                                                          a=1.0,
-                                                          x=self.i.data[column].values.T,
-                                                          zi=self._zi[column])
+                self._zi[column] = zi0 * self.i.data[column].values[0]
+            port_o_col, self._zi[column] = signal.lfilter(
+                b=self._coeffs,
+                a=1.0,
+                x=self.i.data[column].values.T,
+                zi=self._zi[column],
+            )
             # self.o.meta.update({'FIRFilter': {'delay': self._delay}})
             self.o.data.loc[:, column] = port_o_col
             # update delay
-            delay = self.o.meta.get('delay') or 0.0
+            delay = self.o.meta.get("delay") or 0.0
             delay += self._delay
-            self.o.meta.update({'delay': delay})
+            self.o.meta.update({"delay": delay})
 
     def _design_filter(self):
         """Calculate an FIR filter kernel for a given sampling rate."""
@@ -493,11 +531,12 @@ class FIRFilter(Node):
         nyq = self._rate / 2.0
 
         if self._coeffs_custom is None:
-            edges, gains, _, _ = design_edges(frequencies=self._frequencies,
-                                              nyq=nyq,
-                                              mode=self._mode)
-            fir_coeffs = construct_fir_filter(self._rate, edges, gains, self._order,
-                                              **self._kwargs)
+            edges, gains, _, _ = design_edges(
+                frequencies=self._frequencies, nyq=nyq, mode=self._mode
+            )
+            fir_coeffs = construct_fir_filter(
+                self._rate, edges, gains, self._order, **self._kwargs
+            )
         else:
             fir_coeffs = self._coeffs_custom
         warmup = self._order - 1
@@ -518,14 +557,13 @@ class Scaler(Node):
 
     """
 
-    def __init__(self, method='sklearn.preprocessing.StandardScaler', **kwargs):
+    def __init__(self, method="sklearn.preprocessing.StandardScaler", **kwargs):
 
         super().__init__()
         try:
             self._scaler = make_object(method, kwargs)
         except AttributeError:
-            raise ValueError(
-                'Cannot make object from {method}'.format(method=method))
+            raise ValueError("Cannot make object from {method}".format(method=method))
 
     def update(self):
 
@@ -533,8 +571,10 @@ class Scaler(Node):
             return
 
         # scale the signal
-        self.o.data = pd.DataFrame(data=self._scaler.fit_transform(self.i.data.values),
-                                   columns=self.i.data.columns)
+        self.o.data = pd.DataFrame(
+            data=self._scaler.fit_transform(self.i.data.values),
+            columns=self.i.data.columns,
+        )
         if len(self.o.data) == len(self.i.data):
             self.o.data.index = self.i.data.index
 
@@ -554,7 +594,13 @@ class AdaptiveScaler(Window):
        **kwargs : keyword arguments  to initialize the scaler.
     """
 
-    def __init__(self, length, method='sklearn.preprocessing.StandardScaler', dropna=False, **kwargs):
+    def __init__(
+        self,
+        length,
+        method="sklearn.preprocessing.StandardScaler",
+        dropna=False,
+        **kwargs,
+    ):
 
         super(self.__class__, self).__init__(length=length, step=0)
         self._has_fitted = False
@@ -562,8 +608,7 @@ class AdaptiveScaler(Window):
         try:
             self._scaler = make_object(method, kwargs)
         except AttributeError:
-            raise ValueError(
-                f'Module sklearn.preprocessing has no object {method}')
+            raise ValueError(f"Module sklearn.preprocessing has no object {method}")
 
     def update(self):
 
@@ -587,9 +632,11 @@ class AdaptiveScaler(Window):
         # if the scaler has been fitted, transform the current data
         if self._has_fitted and self.i.ready():
             transformed_data = self._scaler.transform(self.i.data.values)
-            self.o.data = pd.DataFrame(data=transformed_data,
-                                       columns=self.i.data.columns,
-                                       index=self.i.data.index)
+            self.o.data = pd.DataFrame(
+                data=transformed_data,
+                columns=self.i.data.columns,
+                index=self.i.data.index,
+            )
 
 
 class FilterBank(Branch):
@@ -605,38 +652,35 @@ class FilterBank(Branch):
         filters (dict|None): Define the iir filter to apply given its name and its params.
     """
 
-    def __init__(self, filters, method='IIRFilter', rate=None, **kwargs):
+    def __init__(self, filters, method="IIRFilter", rate=None, **kwargs):
         super().__init__()
         self._filters = filters
 
-        graph = {
-            'nodes': [],
-            'edges': []
-        }
-        graph['nodes'].append({
-            'id': 'stack',
-            'module': 'timeflux_dsp.nodes.helpers',
-            'class': 'Concat',
-        })
+        graph = {"nodes": [], "edges": []}
+        graph["nodes"].append(
+            {"id": "stack", "module": "timeflux_dsp.nodes.helpers", "class": "Concat",}
+        )
 
         for filter_name, filter_params in self._filters.items():
-            filter_params.update({'rate': rate})
+            filter_params.update({"rate": rate})
             filter_params.update(kwargs)
             iir = {
-                'id': filter_name,
-                'module': 'timeflux_dsp.nodes.filters',
-                'class': method,
-                'params': filter_params
+                "id": filter_name,
+                "module": "timeflux_dsp.nodes.filters",
+                "class": method,
+                "params": filter_params,
             }
             rename_columns = {
-                'id': f'rename_{filter_name}',
-                'module': 'timeflux.nodes.axis',
-                'class': 'AddSuffix',
-                'params': {'suffix': f'_{filter_name}'}
+                "id": f"rename_{filter_name}",
+                "module": "timeflux.nodes.axis",
+                "class": "AddSuffix",
+                "params": {"suffix": f"_{filter_name}"},
             }
-            graph['nodes'] += [iir, rename_columns]
-            graph['edges'] += [{'source': filter_name, 'target': f'rename_{filter_name}'},
-                               {'source': f'rename_{filter_name}', 'target': f'stack:{filter_name}'}]
+            graph["nodes"] += [iir, rename_columns]
+            graph["edges"] += [
+                {"source": filter_name, "target": f"rename_{filter_name}"},
+                {"source": f"rename_{filter_name}", "target": f"stack:{filter_name}"},
+            ]
 
         self.load(graph)
 
@@ -646,8 +690,8 @@ class FilterBank(Branch):
             return
         # set the data in input of each filter
         for filter_name in self._filters.keys():
-            self.set_port(filter_name, port_id='i', data=self.i.data, meta=self.i.meta)
+            self.set_port(filter_name, port_id="i", data=self.i.data, meta=self.i.meta)
 
         self.run()
 
-        self.o = self.get_port('stack', port_id='o')
+        self.o = self.get_port("stack", port_id="o")

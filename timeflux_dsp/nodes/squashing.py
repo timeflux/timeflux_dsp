@@ -1,5 +1,5 @@
-from timeflux.core.node import Node
 import numpy as np
+from timeflux.core.node import Node
 
 
 class Discretize(Node):
