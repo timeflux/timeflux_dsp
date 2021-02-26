@@ -88,6 +88,7 @@ def test_localdetect_on_gaussians():
         data_peaks.drop(["now", "extremum_time", "detection_time"], axis=1),
         expected_peaks,
         check_like=True,
+        atol=1e-4
     )
 
 
