@@ -6,7 +6,7 @@ from scipy import signal
 
 from timeflux.core.branch import Branch
 from timeflux.core.node import Node
-from timeflux.nodes.window import Window
+from timeflux.nodes.window import TimeWindow
 from timeflux_dsp.utils.filters import (
     construct_fir_filter,
     construct_iir_filter,
@@ -579,7 +579,7 @@ class Scaler(Node):
             self.o.data.index = self.i.data.index
 
 
-class AdaptiveScaler(Window):
+class AdaptiveScaler(TimeWindow):
     """Scale the data adaptively.
     This nodes transforms the data using a sklearn scaler object that is continuously fitted on a rolling window.
 
@@ -602,8 +602,8 @@ class AdaptiveScaler(Window):
         **kwargs,
     ):
 
-        super(self.__class__, self).__init__(length=length, step=0)
-        self._has_fitted = False
+        super().__init__(length=length, step=0)
+        self._fitted = False
         self._dropna = dropna
         try:
             self._scaler = make_object(method, kwargs)
@@ -616,7 +616,7 @@ class AdaptiveScaler(Window):
             return
 
         # At this point, we are sure that we have some data to process
-        super(self.__class__, self).update()
+        super().update()
 
         # if the window output is ready, fit the scaler with its values
         if self.o.ready():
@@ -624,13 +624,13 @@ class AdaptiveScaler(Window):
             if self._dropna:
                 x = x[~np.isnan(x)]
             self._scaler.fit(x)
-            self._has_fitted = True
+            self._fitted = True
             self.o.clear()
 
         # copy meta
         self.o.meta = self.i.meta
         # if the scaler has been fitted, transform the current data
-        if self._has_fitted and self.i.ready():
+        if self._fitted and self.i.ready():
             transformed_data = self._scaler.transform(self.i.data.values)
             self.o.data = pd.DataFrame(
                 data=transformed_data,
