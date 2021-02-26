@@ -327,7 +327,7 @@ class IIRFilter(Node):
 
 
 class IIRLineFilter(Node):
-    """ Apply multiple Notch IIR Filter in series.
+    """Apply multiple Notch IIR Filter in series.
 
         Attributes:
         i (Port): Default input, expects DataFrame.
@@ -640,7 +640,7 @@ class AdaptiveScaler(TimeWindow):
 
 
 class FilterBank(Branch):
-    """ Apply multiple IIR Filters to the signal and stack the components horizontally
+    """Apply multiple IIR Filters to the signal and stack the components horizontally
 
     Attributes:
         i (Port): Default input, expects DataFrame.
@@ -658,7 +658,11 @@ class FilterBank(Branch):
 
         graph = {"nodes": [], "edges": []}
         graph["nodes"].append(
-            {"id": "stack", "module": "timeflux_dsp.nodes.helpers", "class": "Concat",}
+            {
+                "id": "stack",
+                "module": "timeflux_dsp.nodes.helpers",
+                "class": "Concat",
+            }
         )
 
         for filter_name, filter_params in self._filters.items():

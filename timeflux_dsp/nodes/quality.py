@@ -7,16 +7,16 @@ from timeflux.nodes.window import Window
 
 
 class Discretize(Node):
-    """ Discretize data based on amplitude range.
+    """Discretize data based on amplitude range.
 
-        Attributes:
-        i (Port): Default input, expects DataFrame.
-        o (Port): Default output, provides DataFrame.
+    Attributes:
+    i (Port): Default input, expects DataFrame.
+    o (Port): Default output, provides DataFrame.
 
-        Args:
-            range (dict): Dictionary with keys are discrete value and values
-            are tuple with corresponding data ranges.
-            default: Default discrete value (for data that are not contained in any range)
+    Args:
+        range (dict): Dictionary with keys are discrete value and values
+        are tuple with corresponding data ranges.
+        default: Default discrete value (for data that are not contained in any range)
     """
 
     def __init__(self, range, default=None):
@@ -49,7 +49,7 @@ class Discretize(Node):
 
 
 class ECGQuality(Window):
-    """ Estimate ECG Quality
+    """Estimate ECG Quality
 
     This nodes estimates ECG Quality using neurokit toolbox, by applying function
     `ecg_process` on a rolling window.
@@ -117,7 +117,7 @@ class ECGQuality(Window):
 
 
 class LineQuality(Branch):
-    """ Estimate level of line noise
+    """Estimate level of line noise
 
     This nodes estimates LineNoise as the ratio between good power and total power on a rolling
     window.
@@ -169,49 +169,73 @@ class LineQuality(Branch):
                     "id": "square_good",
                     "module": "timeflux.nodes.apply",
                     "class": "ApplyMethod",
-                    "params": {"method": "numpy.square", "apply_mode": "universal",},
+                    "params": {
+                        "method": "numpy.square",
+                        "apply_mode": "universal",
+                    },
                 },
                 {
                     "id": "square_total",
                     "module": "timeflux.nodes.apply",
                     "class": "ApplyMethod",
-                    "params": {"method": "numpy.square", "apply_mode": "universal",},
+                    "params": {
+                        "method": "numpy.square",
+                        "apply_mode": "universal",
+                    },
                 },
                 {
                     "id": "window_good",
                     "module": "timeflux.nodes.window",
                     "class": "Window",
-                    "params": {"length": window_length, "step": window_step,},
+                    "params": {
+                        "length": window_length,
+                        "step": window_step,
+                    },
                 },
                 {
                     "id": "window_total",
                     "module": "timeflux.nodes.window",
                     "class": "Window",
-                    "params": {"length": window_length, "step": window_step,},
+                    "params": {
+                        "length": window_length,
+                        "step": window_step,
+                    },
                 },
                 {
                     "id": "sum_good",
                     "module": "timeflux.nodes.apply",
                     "class": "ApplyMethod",
-                    "params": {"method": "numpy.sum", "apply_mode": "reduce",},
+                    "params": {
+                        "method": "numpy.sum",
+                        "apply_mode": "reduce",
+                    },
                 },
                 {
                     "id": "sum_total",
                     "module": "timeflux.nodes.apply",
                     "class": "ApplyMethod",
-                    "params": {"module_name": "numpy.sum", "apply_mode": "reduce",},
+                    "params": {
+                        "module_name": "numpy.sum",
+                        "apply_mode": "reduce",
+                    },
                 },
                 {
                     "id": "divide",
                     "module": "timeflux.nodes.expression",
                     "class": "Expression",
-                    "params": {"expr": "i_1/i_2", "eval_on": "ports",},
+                    "params": {
+                        "expr": "i_1/i_2",
+                        "eval_on": "ports",
+                    },
                 },
                 {
                     "id": "log",
                     "module": "timeflux.nodes.apply",
                     "class": "ApplyMethod",
-                    "params": {"module_name": "numpy.log", "apply_mode": "universal",},
+                    "params": {
+                        "module_name": "numpy.log",
+                        "apply_mode": "universal",
+                    },
                 },
                 {
                     "id": "discretize",
@@ -251,7 +275,7 @@ class LineQuality(Branch):
 
 
 class AmplitudeQuality(Branch):
-    """ Estimate discrete signal quality index based on a temporal feature from the amplitude.
+    """Estimate discrete signal quality index based on a temporal feature from the amplitude.
 
     This nodes rolls a window and applies a numpy function  given by ``method``
     (eg. ptp, max, min, mean...) over rows and discretize the result based on ``range`` .
@@ -283,7 +307,10 @@ class AmplitudeQuality(Branch):
                     "id": "criteria",
                     "module": "timeflux.nodes.apply",
                     "class": "ApplyMethod",
-                    "params": {"method": f"numpy.{method}", "apply_mode": "reduce",},
+                    "params": {
+                        "method": f"numpy.{method}",
+                        "apply_mode": "reduce",
+                    },
                 },
                 {
                     "id": "discretize",

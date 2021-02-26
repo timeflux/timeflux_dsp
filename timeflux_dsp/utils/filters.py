@@ -277,7 +277,7 @@ def design_edges(frequencies, nyq, mode):
 
 
 def _filter_attenuation(h, frequencies, gains):
-    """ Compute minimum attenuation at stop frequency.
+    """Compute minimum attenuation at stop frequency.
 
      Args:
         h (array): Filter coefficients.
@@ -306,7 +306,7 @@ def _filter_attenuation(h, frequencies, gains):
 
 
 def construct_fir_filter(rate, frequencies, gains, order, phase, window, design):
-    """ Construct coeffs of FIR filter.
+    """Construct coeffs of FIR filter.
 
     Args:
         rate (float): Nominal sampling rate of the input data.

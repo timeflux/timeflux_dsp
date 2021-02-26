@@ -57,13 +57,13 @@ class FFT(Node):
 
     def __init__(self, fs=1.0, nfft=None, return_onesided=True):
         """
-            Args:
-                fs (float): Nominal sampling rate of the input data.
-                nfft (int|None): Length of the Fourier transform. Default: length of the chunk.
-                return_onesided (bool): If `True`, return a one-sided spectrum for real data.
-                                              If `False` return a two-sided spectrum.
-                                              (Note that for complex data, a two-sided spectrum is always returned.)
-                                              Default: `True`.
+        Args:
+            fs (float): Nominal sampling rate of the input data.
+            nfft (int|None): Length of the Fourier transform. Default: length of the chunk.
+            return_onesided (bool): If `True`, return a one-sided spectrum for real data.
+                                          If `False` return a two-sided spectrum.
+                                          (Note that for complex data, a two-sided spectrum is always returned.)
+                                          Default: `True`.
         """
 
         self._fs = fs
@@ -123,57 +123,57 @@ class FFT(Node):
 class Welch(Node):
     """Estimate power spectral density using Welch’s method.
 
-        Attributes:
-           i (Port): default input, expects DataFrame.
-           o (Port): default output, provides DataArray with dimensions (time, freq, space).
+    Attributes:
+       i (Port): default input, expects DataFrame.
+       o (Port): default output, provides DataArray with dimensions (time, freq, space).
 
-        Example:
+    Example:
 
-        In this exemple, we simulate data with noisy sinus on three sensors (columns `a`, `b`, `c`):
+    In this exemple, we simulate data with noisy sinus on three sensors (columns `a`, `b`, `c`):
 
-            * ``fs`` = `100.0`
-            * ``nfft`` = `24`
+        * ``fs`` = `100.0`
+        * ``nfft`` = `24`
 
-        node.i.data::
-            \s                       a         b         c
-            1970-01-01 00:00:00.000 -0.233920 -0.343296  0.157988
-            1970-01-01 00:00:00.010  0.460353  0.777296  0.957201
-            1970-01-01 00:00:00.020  0.768459  1.234923  1.942190
-            1970-01-01 00:00:00.030  1.255393  1.782445  2.326175
-            ...                      ...       ...       ...
-            1970-01-01 00:00:01.190  1.185759  2.603828  3.315607
+    node.i.data::
+        \s                       a         b         c
+        1970-01-01 00:00:00.000 -0.233920 -0.343296  0.157988
+        1970-01-01 00:00:00.010  0.460353  0.777296  0.957201
+        1970-01-01 00:00:00.020  0.768459  1.234923  1.942190
+        1970-01-01 00:00:00.030  1.255393  1.782445  2.326175
+        ...                      ...       ...       ...
+        1970-01-01 00:00:01.190  1.185759  2.603828  3.315607
 
-        node.o.data::
+    node.o.data::
 
-            <xarray.DataArray (time: 1, freq: 13, space: 3)>
-            array([[[2.823924e-02, 1.087382e-01, 1.153163e-01],
-                [1.703466e-01, 6.048703e-01, 6.310628e-01],
-                ...            ...           ...
-                [9.989429e-04, 8.519226e-04, 7.769918e-04],
-                [1.239551e-03, 7.412518e-04, 9.863335e-04],
-                [5.382880e-04, 4.999334e-04, 4.702757e-04]]])
-            Coordinates:
-                * time     (time) datetime64[ns] 1970-01-01T00:00:01.190000
-                * freq     (freq) float64 0.0 4.167 8.333 12.5 16.67 ... 37.5 41.67 45.83 50.0
-                * space    (space) object 'a' 'b' 'c'
+        <xarray.DataArray (time: 1, freq: 13, space: 3)>
+        array([[[2.823924e-02, 1.087382e-01, 1.153163e-01],
+            [1.703466e-01, 6.048703e-01, 6.310628e-01],
+            ...            ...           ...
+            [9.989429e-04, 8.519226e-04, 7.769918e-04],
+            [1.239551e-03, 7.412518e-04, 9.863335e-04],
+            [5.382880e-04, 4.999334e-04, 4.702757e-04]]])
+        Coordinates:
+            * time     (time) datetime64[ns] 1970-01-01T00:00:01.190000
+            * freq     (freq) float64 0.0 4.167 8.333 12.5 16.67 ... 37.5 41.67 45.83 50.0
+            * space    (space) object 'a' 'b' 'c'
 
-        Notes:
+    Notes:
 
-            This node should be used after a Window with the appropriate length, with regard to the parameters
-            `noverlap`, `nperseg` and `nfft`.
-            It should be noted that a pipeline such as {LargeWindow-Welch} is in fact equivalent to a pipeline
-            {SmallWindow-FFT-LargeWindow-Average} with SmallWindow 's parameters `length` and `step` respectively
-            equivalent to `nperseg` and `step` and with FFT node with same kwargs.
+        This node should be used after a Window with the appropriate length, with regard to the parameters
+        `noverlap`, `nperseg` and `nfft`.
+        It should be noted that a pipeline such as {LargeWindow-Welch} is in fact equivalent to a pipeline
+        {SmallWindow-FFT-LargeWindow-Average} with SmallWindow 's parameters `length` and `step` respectively
+        equivalent to `nperseg` and `step` and with FFT node with same kwargs.
 
     """
 
     def __init__(self, rate=None, closed="right", **kwargs):
         """
-            Args:
-                rate (float|None): Nominal sampling rate of the input data. If `None`, the rate will be taken from the input meta/
-                closed (str): Make the index closed on the `right`, `left` or `center`.
-                kwargs:  Keyword arguments to pass to scipy.signal.welch function.
-                                You can specify: window, nperseg, noverlap, nfft, detrend, return_onesided and scaling.
+        Args:
+            rate (float|None): Nominal sampling rate of the input data. If `None`, the rate will be taken from the input meta/
+            closed (str): Make the index closed on the `right`, `left` or `center`.
+            kwargs:  Keyword arguments to pass to scipy.signal.welch function.
+                            You can specify: window, nperseg, noverlap, nfft, detrend, return_onesided and scaling.
         """
 
         self._rate = rate

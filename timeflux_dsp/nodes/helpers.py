@@ -4,7 +4,7 @@ from timeflux.core.node import Node
 
 
 class Concat(Node):
-    """ Concat list of data ports .
+    """Concat list of data ports .
     Attributes:
         i_* (Port): Dynamic inputs, expects DataFrame and meta.
         o (Port): Default output, provides DataFrame.

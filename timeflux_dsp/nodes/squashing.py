@@ -3,7 +3,7 @@ from timeflux.core.node import Node
 
 
 class Discretize(Node):
-    """ Discretize data based on defined ranges
+    """Discretize data based on defined ranges
     Attributes:
         i (Port): Default input, expects DataFrame.
         o (Port): Default output, provides DataFrame.

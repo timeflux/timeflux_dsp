@@ -7,7 +7,7 @@ from timeflux.helpers.clock import now
 
 
 class LocalDetect(Node):
-    """ Detect peaks and valleys in live 1D signal
+    """Detect peaks and valleys in live 1D signal
 
     This node uses a simple algorithm to detect peaks in real time.
     When a local extrema (peak or valley) is detected, an event is sent with the nature
@@ -214,7 +214,7 @@ class LocalDetect(Node):
 
 
 class RollingDetect(Node):
-    """ Detect peaks and valleys on a rolling window of analysis in  1D signal
+    """Detect peaks and valleys on a rolling window of analysis in  1D signal
     This node uses a buffer to compute local extrema and detect peaks in real time.
     When a local extrema (peak or valley) is detected, an event is sent with the
     nature specified in the label column ("peak"/"valley) and
@@ -346,7 +346,7 @@ class RollingDetect(Node):
 
 
 class Rate(Node):
-    """ Computes rate of an event given its label.
+    """Computes rate of an event given its label.
 
     This node computes the inverse duration (ie. instantaneous rate) between onsets of successive events with a marker
     matching the ``event_trigger`` in the ``event_label`` column of the event input,
