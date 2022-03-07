@@ -15,7 +15,7 @@ graphs:
       class: Resample
       params:
         factor: 2
-        window: None
+        window: null
 
     - id: display
       module: timeflux.nodes.debug
