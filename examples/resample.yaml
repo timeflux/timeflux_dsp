@@ -11,7 +11,7 @@ graphs:
       params:
         length: 2
     - id: resample
-      module: timeflux.nodes_dev.filters
+      module: timeflux_dsp.nodes.filters
       class: Resample
       params:
         factor: 2
