@@ -6,8 +6,8 @@ graphs:
       module: timeflux.nodes.random
       class: Random
       params:
-        rows_min: 512
-        rows_max: 512
+        rows_min: 250
+        rows_max: 250
     # Continuously buffer the signal.
     - id: window
       module: timeflux.nodes.window
@@ -20,7 +20,7 @@ graphs:
       module: timeflux_dsp.nodes.spectral
       class: Welch
       params:
-        fs: 512
+        rate: 500
     # Average the power over band frequencies.
     - id: bands
       module: timeflux_dsp.nodes.spectral
@@ -38,4 +38,4 @@ graphs:
       target: bands
     - source: bands:alpha
       target: display
-    rate: 1
+    rate: 5
