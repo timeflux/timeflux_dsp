@@ -141,28 +141,34 @@ class LocalDetect(Node):
             detected = self._on_sample(value=value, timestamp=timestamp)
             # Append event
             if detected:
-                self.o.data = self.o.data.append(
-                    pd.DataFrame(
-                        index=[self.i.data.index[-1]],  # detected[0]
-                        data=np.array(
-                            [
-                                [detected[1]],
+                self.o.data = pd.concat(
+                    [
+                        self.o.data,
+                        pd.DataFrame(
+                            index=[self.i.data.index[-1]],  # detected[0]
+                            data=np.array(
                                 [
-                                    {
-                                        "value": detected[2][0],
-                                        "lag": detected[3],
-                                        "interval": detected[4],
-                                        "column_name": column_name,
-                                        "detection_time": str(self.i.data.index[-1]),
-                                        "now": str(now()),
-                                        "extremum_time": str(detected[0]),
-                                    }
-                                ],
-                            ]
-                        ).T,
-                        columns=["label", "data"],
-                    )
+                                    [detected[1]],
+                                    [
+                                        {
+                                            "value": detected[2][0],
+                                            "lag": detected[3],
+                                            "interval": detected[4],
+                                            "column_name": column_name,
+                                            "detection_time": str(
+                                                self.i.data.index[-1]
+                                            ),
+                                            "now": str(now()),
+                                            "extremum_time": str(detected[0]),
+                                        }
+                                    ],
+                                ]
+                            ).T,
+                            columns=["label", "data"],
+                        ),
+                    ]
                 )
+
                 self.o.meta = {"column_name": column_name}
 
     def _on_sample(self, value, timestamp):
@@ -295,27 +301,30 @@ class RollingDetect(Node):
             # Peak detection
             detected = self._on_sample(value=value, timestamp=timestamp)
             if detected:
-                self.o.data = self.o.data.append(
-                    pd.DataFrame(
-                        index=[detected[0]],
-                        data=np.array(
-                            [
-                                [detected[1]],
+                self.o.data = pd.concat(
+                    [
+                        self.o.data,
+                        pd.DataFrame(
+                            index=[detected[0]],
+                            data=np.array(
                                 [
-                                    {
-                                        "value": detected[2],
-                                        "lag": detected[3],
-                                        "interval": detected[4],
-                                        "column_name": self._column,
-                                        "detection_time": str(self._last),
-                                        "now": str(now()),
-                                        "extremum_time": str(detected[0]),
-                                    }
-                                ],
-                            ]
-                        ).T,
-                        columns=["label", "data"],
-                    )
+                                    [detected[1]],
+                                    [
+                                        {
+                                            "value": detected[2],
+                                            "lag": detected[3],
+                                            "interval": detected[4],
+                                            "column_name": self._column,
+                                            "detection_time": str(self._last),
+                                            "now": str(now()),
+                                            "extremum_time": str(detected[0]),
+                                        }
+                                    ],
+                                ]
+                            ).T,
+                            columns=["label", "data"],
+                        ),
+                    ]
                 )
                 self.o.meta = {"column_name": self._column}
 
