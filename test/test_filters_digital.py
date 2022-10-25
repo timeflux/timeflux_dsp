@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pandas.util.testing as tm
 import pytest
+from scipy import signal
 from timeflux.helpers.testing import ReadData, Looper
 from timeflux_dsp.nodes.filters import FIRFilter, IIRFilter
 
@@ -89,6 +90,51 @@ def test_cascade_iirfilter(generator, chunk_size):
     np.testing.assert_array_almost_equal(
         continuous_output.iloc[int(warmup * node_iir._rate) :].values,
         cascade_output.iloc[int(warmup * node_iir._rate) :].values,
+        6,
+    )
+
+
+# -----------------------------------------------------------------------------
+# Test that Timeflux offline IIR filtering is the same as Scipy
+# -----------------------------------------------------------------------------
+def test_scipy_iirfilter(generator):
+    """ Test offline IIRFilter with respect Scipy """
+    rate = generator._rate
+    cutoff_hz, order = 3, 3
+    filter_type = "lowpass"
+
+    # Offline filtering with Timeflux
+    node_iir = IIRFilter(
+        rate=rate,
+        frequencies=[cutoff_hz],
+        filter_type=filter_type,
+        order=order,
+    )
+
+    generator.reset()
+    looper = Looper(node=node_iir, generator=generator)
+    tx_output, _ = looper.run(chunk_size=None)
+
+    # Offline filtering with Scipy, using default values of IIRFilter()
+    sos = signal.iirfilter(
+        N=order,
+        Wn=cutoff_hz / (rate / 2),
+        rp=3.0,
+        rs=50.0,
+        btype=filter_type,
+        ftype="butter",
+        output="sos",
+    )
+    zi = signal.sosfilt_zi(sos)
+
+    data = generator._data.copy()
+    sp_output, _ = signal.sosfilt(sos, np.squeeze(data), zi=zi)
+
+    # assert equivalence
+    warmup = 50 * (order) / (node_iir._rate)
+    np.testing.assert_array_almost_equal(
+        np.squeeze(tx_output.iloc[int(warmup * node_iir._rate):].values),
+        sp_output[int(warmup * node_iir._rate):],
         6,
     )
 
