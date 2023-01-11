@@ -129,6 +129,9 @@ class LocalDetect(Node):
             self.i.data = self.i.data.take([0], axis=1)
 
         column_name = self.i.data.columns[0]
+        if self.i.data[column_name].hasnans():
+            self.logger.warning(f'Peak detection skipped chunk due to NaN values')
+
         # At this point, we are sure that we have some data to process
         self.o.data = pd.DataFrame()
 
@@ -285,9 +288,12 @@ class RollingDetect(Node):
             )
             self.i.data = self.i.data.take([0], axis=1)
 
+        self._column = self.i.data.columns[0]
+        if self.i.data[self._column].hasnans():
+            self.logger.warning(f'Peak detection skipped chunk due to NaN values')
+
         self._last = self.i.data.index[-1]
         if not self._ready:
-            self._column = self.i.data.columns[0]
             # if self._last_peak is None:
             self._last_peak = self._last_valley = self.i.data.index[0]
             self._values_buffer += [0] * 2 * self._n
